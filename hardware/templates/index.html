@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>16-Relay Power Controller</title>
+    <title>8-Relay Power Controller</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -12,42 +12,14 @@
             <h1>⚡ CASM Analog Power Controller</h1>
             <p class="subtitle">1 Board × 8 Relays (8 Total) - Hardware Control</p>
             <div class="header-controls">
-                <button class="reset-btn" onclick="resetAllRelays()">Reset All Relays</button>
-                <button class="health-btn" onclick="checkHealth()">Check Health</button>
+                <button class="reset-btn" onclick="turnOffAllRelays()">Turn OFF All Relays</button>
+                <button class="on-btn" onclick="turnOnAllRelays()">Turn ON All Relays</button>
             </div>
-            <div id="health-status" class="health-status"></div>
+            <div id="status-message" class="health-status"></div>
         </header>
 
         <div id="relay-grid">
             <!-- Relay stacks will be dynamically generated here -->
-        </div>
-
-        <div class="api-docs">
-            <h2>API Usage Examples</h2>
-            <div class="code-block">
-                <h3>Turn ON Stack 0, Relay 1:</h3>
-                <code>curl -X POST http://localhost:5001/api/relay/0/1 -H "Content-Type: application/json" -d '{"state": 1}'</code>
-            </div>
-            <div class="code-block">
-                <h3>Turn OFF Stack 0, Relay 1:</h3>
-                <code>curl -X POST http://localhost:5001/api/relay/0/1 -H "Content-Type: application/json" -d '{"state": 0}'</code>
-            </div>
-            <div class="code-block">
-                <h3>Get Stack 0, Relay 1 state:</h3>
-                <code>curl http://localhost:5001/api/relay/0/1</code>
-            </div>
-            <div class="code-block">
-                <h3>Get all relays in Stack 0:</h3>
-                <code>curl http://localhost:5001/api/relay/stack/0</code>
-            </div>
-            <div class="code-block">
-                <h3>Get all relay states:</h3>
-                <code>curl http://localhost:5001/api/relay/all</code>
-            </div>
-            <div class="code-block">
-                <h3>Health check:</h3>
-                <code>curl http://localhost:5001/api/health</code>
-            </div>
         </div>
     </div>
 
@@ -60,12 +32,11 @@
                 renderRelays(data);
             } catch (error) {
                 console.error('Error fetching relay states:', error);
-                showError('Failed to fetch relay states. Check hardware connection.');
+                showError('Failed to fetch relay states. Check hardware connection or ensure the Flask server is running.');
             }
         }
 
         // Render all relay stacks
-        // ⚠️ Currently set to 1 board - change to 6 when you have all boards
         function renderRelays(relayData) {
             const grid = document.getElementById('relay-grid');
             grid.innerHTML = '';
@@ -133,14 +104,14 @@
             }
         }
 
-        // Reset all relays
-        async function resetAllRelays() {
+        // Turn OFF all relays
+        async function turnOffAllRelays() {
             if (!confirm('Are you sure you want to turn OFF all relays?')) {
                 return;
             }
             
             try {
-                const response = await fetch('/api/relay/reset', {
+                const response = await fetch('/api/relay/all-off', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -151,42 +122,47 @@
                 
                 if (response.ok) {
                     fetchRelayStates(); // Refresh the UI
-                    showSuccess('All relays reset to OFF');
+                    showSuccess('All relays turned OFF');
                 } else {
-                    showError('Failed to reset relays');
+                    showError('Failed to turn off relays');
                 }
             } catch (error) {
-                console.error('Error resetting relays:', error);
+                console.error('Error turning off relays:', error);
                 showError('Network error. Check connection.');
             }
         }
 
-        // Check hardware health
-        async function checkHealth() {
+        // Turn ON all relays
+        async function turnOnAllRelays() {
+            if (!confirm('Are you sure you want to turn ON all relays?')) {
+                return;
+            }
+            
             try {
-                const response = await fetch('/api/health');
-                const data = await response.json();
+                const response = await fetch('/api/relay/all-on', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
                 
-                let healthHtml = '<strong>Hardware Status:</strong><br>';
-                for (const [stack, status] of Object.entries(data.stacks)) {
-                    const icon = status === 'connected' ? '✓' : '✗';
-                    const className = status === 'connected' ? 'connected' : 'disconnected';
-                    healthHtml += `<span class="${className}">${icon} ${stack}: ${status}</span><br>`;
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                    showSuccess('All relays turned ON');
+                } else {
+                    showError('Failed to turn on relays');
                 }
-                
-                document.getElementById('health-status').innerHTML = healthHtml;
-                setTimeout(() => {
-                    document.getElementById('health-status').innerHTML = '';
-                }, 5000);
             } catch (error) {
-                console.error('Error checking health:', error);
-                showError('Failed to check hardware health');
+                console.error('Error turning on relays:', error);
+                showError('Network error. Check connection.');
             }
         }
 
         // Show success message
         function showSuccess(message) {
-            const statusDiv = document.getElementById('health-status');
+            const statusDiv = document.getElementById('status-message');
             statusDiv.innerHTML = `<span class="success">✓ ${message}</span>`;
             setTimeout(() => {
                 statusDiv.innerHTML = '';
@@ -195,7 +171,7 @@
 
         // Show error message
         function showError(message) {
-            const statusDiv = document.getElementById('health-status');
+            const statusDiv = document.getElementById('status-message');
             statusDiv.innerHTML = `<span class="error">✗ ${message}</span>`;
             setTimeout(() => {
                 statusDiv.innerHTML = '';
@@ -207,9 +183,6 @@
 
         // Initial load
         fetchRelayStates();
-        
-        // Check health on startup
-        setTimeout(checkHealth, 1000);
     </script>
 </body>
 </html>
