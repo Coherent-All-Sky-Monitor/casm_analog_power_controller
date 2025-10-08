@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relay Controller Simulator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔌 Relay Controller Simulator</h1>
+            <p class="subtitle">Simulating 6 Stacks × 8 Relays (48 Total)</p>
+            <button class="reset-btn" onclick="resetAllRelays()">Reset All Relays</button>
+        </header>
+
+        <div id="relay-grid">
+            <!-- Relay stacks will be dynamically generated here -->
+        </div>
+
+        <div class="api-docs">
+            <h2>API Usage Examples</h2>
+            <div class="code-block">
+                <h3>Turn ON Stack 0, Relay 1:</h3>
+                <code>curl -X POST http://localhost:5001/api/relay/0/1 -H "Content-Type: application/json" -d '{"state": 1}'</code>
+            </div>
+            <div class="code-block">
+                <h3>Turn OFF Stack 0, Relay 1:</h3>
+                <code>curl -X POST http://localhost:5001/api/relay/0/1 -H "Content-Type: application/json" -d '{"state": 0}'</code>
+            </div>
+            <div class="code-block">
+                <h3>Get Stack 0, Relay 1 state:</h3>
+                <code>curl http://localhost:5001/api/relay/0/1</code>
+            </div>
+            <div class="code-block">
+                <h3>Get all relays in Stack 0:</h3>
+                <code>curl http://localhost:5001/api/relay/stack/0</code>
+            </div>
+            <div class="code-block">
+                <h3>Get all relay states:</h3>
+                <code>curl http://localhost:5001/api/relay/all</code>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and render relay states
+        async function fetchRelayStates() {
+            try {
+                const response = await fetch('/api/relay/all');
+                const data = await response.json();
+                renderRelays(data);
+            } catch (error) {
+                console.error('Error fetching relay states:', error);
+            }
+        }
+
+        // Render all relay stacks
+        function renderRelays(relayData) {
+            const grid = document.getElementById('relay-grid');
+            grid.innerHTML = '';
+
+            for (let stackNum = 0; stackNum < 6; stackNum++) {
+                const stackDiv = document.createElement('div');
+                stackDiv.className = 'stack';
+                
+                const stackHeader = document.createElement('h3');
+                stackHeader.textContent = `Stack ${stackNum}`;
+                stackDiv.appendChild(stackHeader);
+
+                const relayContainer = document.createElement('div');
+                relayContainer.className = 'relay-container';
+
+                const relays = relayData[`stack_${stackNum}`];
+                relays.forEach((state, index) => {
+                    const relayNum = index + 1;
+                    const relayBtn = document.createElement('button');
+                    relayBtn.className = `relay ${state === 1 ? 'on' : 'off'}`;
+                    relayBtn.textContent = `R${relayNum}`;
+                    relayBtn.onclick = () => toggleRelay(stackNum, relayNum, state);
+                    relayContainer.appendChild(relayBtn);
+                });
+
+                stackDiv.appendChild(relayContainer);
+                grid.appendChild(stackDiv);
+            }
+        }
+
+        // Toggle relay state
+        async function toggleRelay(stack, relay, currentState) {
+            const newState = currentState === 1 ? 0 : 1;
+            
+            try {
+                const response = await fetch(`/api/relay/${stack}/${relay}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ state: newState })
+                });
+
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                } else {
+                    console.error('Failed to toggle relay');
+                }
+            } catch (error) {
+                console.error('Error toggling relay:', error);
+            }
+        }
+
+        // Reset all relays
+        async function resetAllRelays() {
+            try {
+                const response = await fetch('/api/relay/reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                } else {
+                    console.error('Failed to reset relays');
+                }
+            } catch (error) {
+                console.error('Error resetting relays:', error);
+            }
+        }
+
+        // Auto-refresh every 2 seconds
+        setInterval(fetchRelayStates, 2000);
+
+        // Initial load
+        fetchRelayStates();
+    </script>
+</body>
+</html>
+

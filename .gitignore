@@ -205,3 +205,29 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ===================================================================
+# PROJECT-SPECIFIC IGNORES
+# ===================================================================
+
+# Virtual environment folders (any name)
+casm_power/
+venv/
+env/
+
+# Cloned hardware library (already installed via pip)
+16relind-rpi/
+
+# Mac OS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE and editor folders
+.vscode/
+.idea/
+
+# Temporary files
+*.swp
+*.swo
+*~

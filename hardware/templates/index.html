@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>16-Relay Power Controller</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ CASM Analog Power Controller</h1>
+            <p class="subtitle">1 Board × 8 Relays (8 Total) - Hardware Control</p>
+            <div class="header-controls">
+                <button class="reset-btn" onclick="resetAllRelays()">Reset All Relays</button>
+                <button class="health-btn" onclick="checkHealth()">Check Health</button>
+            </div>
+            <div id="health-status" class="health-status"></div>
+        </header>
+
+        <div id="relay-grid">
+            <!-- Relay stacks will be dynamically generated here -->
+        </div>
+
+        <div class="api-docs">
+            <h2>API Usage Examples</h2>
+            <div class="code-block">
+                <h3>Turn ON Stack 0, Relay 1:</h3>
+                <code>curl -X POST http://localhost:5001/api/relay/0/1 -H "Content-Type: application/json" -d '{"state": 1}'</code>
+            </div>
+            <div class="code-block">
+                <h3>Turn OFF Stack 0, Relay 1:</h3>
+                <code>curl -X POST http://localhost:5001/api/relay/0/1 -H "Content-Type: application/json" -d '{"state": 0}'</code>
+            </div>
+            <div class="code-block">
+                <h3>Get Stack 0, Relay 1 state:</h3>
+                <code>curl http://localhost:5001/api/relay/0/1</code>
+            </div>
+            <div class="code-block">
+                <h3>Get all relays in Stack 0:</h3>
+                <code>curl http://localhost:5001/api/relay/stack/0</code>
+            </div>
+            <div class="code-block">
+                <h3>Get all relay states:</h3>
+                <code>curl http://localhost:5001/api/relay/all</code>
+            </div>
+            <div class="code-block">
+                <h3>Health check:</h3>
+                <code>curl http://localhost:5001/api/health</code>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and render relay states
+        async function fetchRelayStates() {
+            try {
+                const response = await fetch('/api/relay/all');
+                const data = await response.json();
+                renderRelays(data);
+            } catch (error) {
+                console.error('Error fetching relay states:', error);
+                showError('Failed to fetch relay states. Check hardware connection.');
+            }
+        }
+
+        // Render all relay stacks
+        // ⚠️ Currently set to 1 board - change to 6 when you have all boards
+        function renderRelays(relayData) {
+            const grid = document.getElementById('relay-grid');
+            grid.innerHTML = '';
+
+            const NUM_STACKS = 1;  // Change to 6 when you have all boards
+            for (let stackNum = 0; stackNum < NUM_STACKS; stackNum++) {
+                const stackDiv = document.createElement('div');
+                stackDiv.className = 'stack';
+                
+                const stackHeader = document.createElement('h3');
+                stackHeader.textContent = `Stack ${stackNum}`;
+                stackDiv.appendChild(stackHeader);
+
+                const relayContainer = document.createElement('div');
+                relayContainer.className = 'relay-container';
+
+                const relays = relayData[`stack_${stackNum}`];
+                
+                // Check if there's an error for this stack
+                if (relays && relays.error) {
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'stack-error';
+                    errorMsg.textContent = `Error: ${relays.error}`;
+                    stackDiv.appendChild(errorMsg);
+                } else if (Array.isArray(relays)) {
+                    relays.forEach((state, index) => {
+                        const relayNum = index + 1;
+                        const relayBtn = document.createElement('button');
+                        relayBtn.className = `relay ${state === 1 ? 'on' : 'off'}`;
+                        relayBtn.textContent = `R${relayNum}`;
+                        relayBtn.onclick = () => toggleRelay(stackNum, relayNum, state);
+                        relayContainer.appendChild(relayBtn);
+                    });
+                    stackDiv.appendChild(relayContainer);
+                }
+
+                grid.appendChild(stackDiv);
+            }
+        }
+
+        // Toggle relay state
+        async function toggleRelay(stack, relay, currentState) {
+            const newState = currentState === 1 ? 0 : 1;
+            
+            try {
+                const response = await fetch(`/api/relay/${stack}/${relay}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ state: newState })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                    showSuccess(result.message || `Relay ${relay} on Stack ${stack} toggled`);
+                } else {
+                    showError(result.error || 'Failed to toggle relay');
+                }
+            } catch (error) {
+                console.error('Error toggling relay:', error);
+                showError('Network error. Check connection to Raspberry Pi.');
+            }
+        }
+
+        // Reset all relays
+        async function resetAllRelays() {
+            if (!confirm('Are you sure you want to turn OFF all relays?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/relay/reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                    showSuccess('All relays reset to OFF');
+                } else {
+                    showError('Failed to reset relays');
+                }
+            } catch (error) {
+                console.error('Error resetting relays:', error);
+                showError('Network error. Check connection.');
+            }
+        }
+
+        // Check hardware health
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                let healthHtml = '<strong>Hardware Status:</strong><br>';
+                for (const [stack, status] of Object.entries(data.stacks)) {
+                    const icon = status === 'connected' ? '✓' : '✗';
+                    const className = status === 'connected' ? 'connected' : 'disconnected';
+                    healthHtml += `<span class="${className}">${icon} ${stack}: ${status}</span><br>`;
+                }
+                
+                document.getElementById('health-status').innerHTML = healthHtml;
+                setTimeout(() => {
+                    document.getElementById('health-status').innerHTML = '';
+                }, 5000);
+            } catch (error) {
+                console.error('Error checking health:', error);
+                showError('Failed to check hardware health');
+            }
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const statusDiv = document.getElementById('health-status');
+            statusDiv.innerHTML = `<span class="success">✓ ${message}</span>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        // Show error message
+        function showError(message) {
+            const statusDiv = document.getElementById('health-status');
+            statusDiv.innerHTML = `<span class="error">✗ ${message}</span>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // Auto-refresh every 2 seconds
+        setInterval(fetchRelayStates, 2000);
+
+        // Initial load
+        fetchRelayStates();
+        
+        // Check health on startup
+        setTimeout(checkHealth, 1000);
+    </script>
+</body>
+</html>
