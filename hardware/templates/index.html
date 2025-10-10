@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>⚡ CASM Analog Power Controller</h1>
-            <p class="subtitle">1 Board × 8 Relays (8 Total) - Hardware Control</p>
+            <p class="subtitle">2 Boards × 8 Relays (16 Total) - Hardware Control</p>
             <div class="header-controls">
                 <button class="reset-btn" onclick="turnOffAllRelays()">Turn OFF All Relays</button>
                 <button class="on-btn" onclick="turnOnAllRelays()">Turn ON All Relays</button>
@@ -41,7 +41,7 @@
             const grid = document.getElementById('relay-grid');
             grid.innerHTML = '';
 
-            const NUM_STACKS = 1;  // Change to 6 when you have all boards
+            const NUM_STACKS = 2;  // Change to 6 when you have all boards
             for (let stackNum = 0; stackNum < NUM_STACKS; stackNum++) {
                 const stackDiv = document.createElement('div');
                 stackDiv.className = 'stack';

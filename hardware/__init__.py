@@ -4,9 +4,9 @@ import lib8relind as relay
 # Configuration for relay boards (8 relays per board)
 # Stack levels 0-5 mapped to hardware jumper settings
 
-# ⚠️ CURRENTLY TESTING WITH 1 BOARD (8 relays)
-# When you get more boards, change NUM_STACKS to 6 for 48 total relays
-NUM_STACKS = 1  # Change to 6 when you have all boards
+# ⚠️ CURRENTLY TESTING WITH 2 BOARDS (16 relays)
+# Change NUM_STACKS to 6 for 48 total relays
+NUM_STACKS = 2  # Change to 6 when you have all boards
 RELAYS_PER_BOARD = 8
 
 
