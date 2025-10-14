@@ -166,6 +166,86 @@ h1 {
     background: #27ae60;
 }
 
+/* Chassis-specific styles */
+.chassis-section {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.chassis-section h3 {
+    color: white;
+}
+
+.relay.chassis {
+    font-size: 1.1rem;
+    padding: 1.5rem;
+    font-weight: bold;
+}
+
+.relay.chassis.on {
+    background: #e74c3c;
+    border-color: #c0392b;
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.6);
+}
+
+.relay.chassis.off {
+    background: #ecf0f1;
+    color: #7f8c8d;
+}
+
+/* Backboard-specific styles */
+.backboard-section {
+    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+.relay.backboard {
+    font-size: 0.85rem;
+}
+
+/* API Examples Section */
+.api-examples {
+    background: #2c3e50;
+    color: white;
+    border-radius: 8px;
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.api-examples h2 {
+    color: #3498db;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.api-examples h3 {
+    color: #ecf0f1;
+    margin-bottom: 0.75rem;
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+}
+
+.api-examples h3:first-of-type {
+    margin-top: 0;
+}
+
+.example-section {
+    margin-bottom: 1.5rem;
+}
+
+.api-examples pre {
+    background: #1a252f;
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    border-left: 4px solid #3498db;
+}
+
+.api-examples code {
+    color: #52c7b8;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
 @media (max-width: 768px) {
     body {
         padding: 1rem;
@@ -181,5 +261,13 @@ h1 {
 
     .relay-container {
         grid-template-columns: repeat(4, 1fr);
+    }
+
+    .api-examples {
+        padding: 1rem;
+    }
+
+    .api-examples pre {
+        font-size: 0.75rem;
     }
 }

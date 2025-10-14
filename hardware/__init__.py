@@ -10,6 +10,112 @@ NUM_STACKS = 2  # Change to 6 when you have all boards
 RELAYS_PER_BOARD = 8
 
 
+class SwitchMapper:
+    """
+    Maps logical switch names (CH1, CH1A, etc.) to physical relay positions (stack, relay).
+    
+    Layout:
+    - 4 chassis switches: CH1, CH2, CH3, CH4
+    - 43 backboard switches: CH1A-K (11), CH2A-K (11), CH3A-K (11), CH4A-J (10)
+    
+    Sequential mapping across boards:
+    Stack 0: CH1, CH1A-G
+    Stack 1: CH1H-K, CH2, CH2A-C
+    Stack 2: CH2D-K, CH3
+    Stack 3: CH3A-G, CH4
+    Stack 4: CH3H-K, CH4A-C
+    Stack 5: CH4D-J, SPARE
+    """
+    
+    def __init__(self):
+        self._switch_to_relay = {}
+        self._relay_to_switch = {}
+        self._build_mapping()
+    
+    def _build_mapping(self):
+        """Build the bidirectional mapping between switch names and relay positions"""
+        mapping = []  # Temporary list of tuples: (switch_name, stack, relay)
+        
+        # CH1 chassis + CH1A-K backboards (12 total)
+        mapping.append(('CH1', 0, 1))  # CH1 chassis lives on stack 0, relay 1
+        for i, letter in enumerate('ABCDEFGHIJK'):  # Iterate 11 backboards: i=0..10 for A..K
+            stack = 0 if i < 7 else 1  # A-G on stack 0; H-K on stack 1
+            relay = (2 + i) if i < 7 else (1 + i - 7)  # A->2..G->8; H->1..K->4
+            mapping.append((f'CH1{letter}', stack, relay))  # Add mapping for CH1A..CH1K
+        
+        # CH2 chassis + CH2A-K backboards (12 total)
+        mapping.append(('CH2', 1, 5))  # Chassis 2
+        for i, letter in enumerate('ABCDEFGHIJK'):
+            if i < 3:  # CH2A-C on stack 1
+                stack = 1
+                relay = 6 + i
+            else:  # CH2D-K on stack 2
+                stack = 2
+                relay = 1 + i - 3
+        
+            mapping.append((f'CH2{letter}', stack, relay))
+        
+        # CH3 chassis + CH3A-K backboards (12 total)
+        mapping.append(('CH3', 3, 1))  # Chassis 3
+        for i, letter in enumerate('ABCDEFGHIJK'):
+            stack = 3 if i < 7 else 4
+            relay = (2 + i) if i < 7 else (1 + i - 7)
+            mapping.append((f'CH3{letter}', stack, relay))
+        
+        # CH4 chassis + CH4A-J backboards (11 total)
+        mapping.append(('CH4', 4, 5))  # Chassis 4
+        for i, letter in enumerate('ABCDEFGHIJ'):
+            if i < 3:  # CH4A-C on stack 4
+                stack = 4
+                relay = 6 + i
+            else:  # CH4D-J on stack 5
+                stack = 5
+                relay = 1 + i - 3
+            mapping.append((f'CH4{letter}', stack, relay))
+        
+        # Build bidirectional dictionaries
+        for switch_name, stack, relay in mapping:  # Iterate each (name, stack, relay) triple
+            self._switch_to_relay[switch_name] = (stack, relay)  # Map logical name -> physical position
+            self._relay_to_switch[(stack, relay)] = switch_name  # Map physical position -> logical name
+    
+    def get_relay_position(self, switch_name):
+        """
+        Convert switch name to (stack, relay) position.
+        
+        Args:
+            switch_name: Logical name like 'CH1', 'CH1A', etc.
+        
+        Returns:
+            tuple: (stack, relay) or None if not found
+        """
+        return self._switch_to_relay.get(switch_name.upper())
+    
+    def get_switch_name(self, stack, relay):
+        """
+        Convert (stack, relay) position to switch name.
+        
+        Args:
+            stack: Stack number (0-5)
+            relay: Relay number (1-8)
+        
+        Returns:
+            str: Switch name like 'CH1', 'CH1A', etc., or None if not mapped
+        """
+        return self._relay_to_switch.get((stack, relay))
+    
+    def get_all_switches(self):
+        """Get list of all valid switch names"""
+        return sorted(self._switch_to_relay.keys())
+    
+    def is_valid_switch(self, switch_name):
+        """Check if a switch name is valid"""
+        return switch_name.upper() in self._switch_to_relay
+
+
+# Global switch mapper instance
+switch_mapper = SwitchMapper()
+
+
 def create_app():
     app = Flask(__name__)
 
@@ -193,6 +299,156 @@ def create_app():
         return jsonify({
             'message': 'All OFF command sent to all stacks',
             'results': results
+        })
+
+    # ========== NEW SWITCH-BASED API ENDPOINTS ==========
+    
+    @app.route('/api/switch/<switch_name>', methods=['GET'])
+    def get_switch_state(switch_name):
+        """Get the state of a switch by its logical name (e.g., CH1, CH1A)
+        
+        Args:
+            switch_name: Logical switch name (CH1, CH1A, CH2, etc.)
+        
+        Returns:
+            JSON with switch state (0 or 1)
+        """
+        position = switch_mapper.get_relay_position(switch_name)
+        if position is None:
+            return jsonify({
+                'error': f'Invalid switch name: {switch_name}',
+                'valid_switches': switch_mapper.get_all_switches()
+            }), 400
+        
+        stack, relay_num = position
+        
+        try:
+            state = relay.get(stack, relay_num)
+            return jsonify({
+                'switch_name': switch_name.upper(),
+                'stack': stack,
+                'relay': relay_num,
+                'state': state,
+                'status': 'ON' if state == 1 else 'OFF'
+            })
+        except Exception as e:
+            return jsonify({'error': f'Failed to read switch state: {str(e)}'}), 500
+    
+    @app.route('/api/switch/<switch_name>', methods=['POST'])
+    def set_switch_state(switch_name):
+        """Set the state of a switch by its logical name
+        
+        Args:
+            switch_name: Logical switch name (CH1, CH1A, CH2, etc.)
+        
+        Body:
+            JSON with 'state': 0 (OFF) or 1 (ON)
+        
+        Returns:
+            JSON with updated switch state
+        """
+        position = switch_mapper.get_relay_position(switch_name)
+        if position is None:
+            return jsonify({
+                'error': f'Invalid switch name: {switch_name}',
+                'valid_switches': switch_mapper.get_all_switches()
+            }), 400
+        
+        stack, relay_num = position
+        
+        data = request.get_json()
+        if data is None or 'state' not in data:
+            return jsonify({'error': 'Missing state in request body'}), 400
+        
+        new_state = data['state']
+        if new_state not in [0, 1]:
+            return jsonify({'error': 'State must be 0 (OFF) or 1 (ON)'}), 400
+        
+        try:
+            relay.set(stack, relay_num, new_state)
+            
+            return jsonify({
+                'switch_name': switch_name.upper(),
+                'stack': stack,
+                'relay': relay_num,
+                'state': new_state,
+                'status': 'ON' if new_state == 1 else 'OFF',
+                'message': f'{switch_name.upper()} turned {"ON" if new_state == 1 else "OFF"}'
+            })
+        except Exception as e:
+            return jsonify({'error': f'Failed to set switch state: {str(e)}'}), 500
+    
+    @app.route('/api/switch/list', methods=['GET'])
+    def list_all_switches():
+        """Get a list of all valid switch names and their current states"""
+        switches = {}
+        
+        for switch_name in switch_mapper.get_all_switches():
+            position = switch_mapper.get_relay_position(switch_name)
+            if position:
+                stack, relay_num = position
+                try:
+                    state = relay.get(stack, relay_num)
+                    switches[switch_name] = {
+                        'state': state,
+                        'status': 'ON' if state == 1 else 'OFF',
+                        'stack': stack,
+                        'relay': relay_num
+                    }
+                except Exception as e:
+                    switches[switch_name] = {'error': str(e)}
+        
+        return jsonify(switches)
+    
+    @app.route('/api/switch/chassis/<int:chassis_num>', methods=['GET'])
+    def get_chassis_switches(chassis_num):
+        """Get all switches for a specific chassis (e.g., chassis 1 returns CH1 + CH1A-K)
+        
+        Args:
+            chassis_num: Chassis number (1-4)
+        """
+        if chassis_num < 1 or chassis_num > 4:
+            return jsonify({'error': 'Chassis number must be 1-4'}), 400
+        
+        chassis_name = f'CH{chassis_num}'
+        switches = {}
+        
+        # Get chassis switch
+        position = switch_mapper.get_relay_position(chassis_name)
+        if position:
+            stack, relay_num = position
+            try:
+                state = relay.get(stack, relay_num)
+                switches[chassis_name] = {
+                    'state': state,
+                    'status': 'ON' if state == 1 else 'OFF',
+                    'type': 'chassis'
+                }
+            except Exception as e:
+                switches[chassis_name] = {'error': str(e)}
+        
+        # Get backboard switches
+        max_letter = 'J' if chassis_num == 4 else 'K'
+        for letter in 'ABCDEFGHIJK':
+            if letter > max_letter:
+                break
+            switch_name = f'CH{chassis_num}{letter}'
+            position = switch_mapper.get_relay_position(switch_name)
+            if position:
+                stack, relay_num = position
+                try:
+                    state = relay.get(stack, relay_num)
+                    switches[switch_name] = {
+                        'state': state,
+                        'status': 'ON' if state == 1 else 'OFF',
+                        'type': 'backboard'
+                    }
+                except Exception as e:
+                    switches[switch_name] = {'error': str(e)}
+        
+        return jsonify({
+            'chassis': chassis_num,
+            'switches': switches
         })
 
     return app

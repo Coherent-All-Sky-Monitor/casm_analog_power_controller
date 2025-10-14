@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>⚡ CASM Analog Power Controller</h1>
-            <p class="subtitle">2 Boards × 8 Relays (16 Total) - Hardware Control</p>
+            <p class="subtitle">Prototype: CH1 Chassis + 11 Backboards (CH1A-K)</p>
             <div class="header-controls">
                 <button class="reset-btn" onclick="turnOffAllRelays()">Turn OFF All Relays</button>
                 <button class="on-btn" onclick="turnOnAllRelays()">Turn ON All Relays</button>
@@ -19,70 +19,131 @@
         </header>
 
         <div id="relay-grid">
-            <!-- Relay stacks will be dynamically generated here -->
+            <!-- Switch controls will be dynamically generated here -->
+        </div>
+
+        <!-- curl Command Examples Section -->
+        <div class="api-examples">
+            <h2>📡 API Usage (curl Commands)</h2>
+            
+            <div class="example-section">
+                <h3>Turn Switch ON/OFF</h3>
+                <pre><code># Turn CH1 chassis ON
+curl -X POST http://localhost:5001/api/switch/CH1 \
+  -H "Content-Type: application/json" \
+  -d '{"state": 1}'
+
+# Turn CH1A backboard OFF
+curl -X POST http://localhost:5001/api/switch/CH1A \
+  -H "Content-Type: application/json" \
+  -d '{"state": 0}'</code></pre>
+            </div>
+
+            <div class="example-section">
+                <h3>Get Switch Status</h3>
+                <pre><code># Get CH1 status
+curl http://localhost:5001/api/switch/CH1
+
+# Get all switches for chassis 1
+curl http://localhost:5001/api/switch/chassis/1
+
+# List all switches
+curl http://localhost:5001/api/switch/list</code></pre>
+            </div>
+
+            <div class="example-section">
+                <h3>Legacy API (by stack/relay number)</h3>
+                <pre><code># Still supported for backward compatibility
+curl -X POST http://localhost:5001/api/relay/0/1 \
+  -H "Content-Type: application/json" \
+  -d '{"state": 1}'</code></pre>
+            </div>
         </div>
     </div>
 
     <script>
-        // Fetch and render relay states
+        // Fetch and render switch states
         async function fetchRelayStates() {
             try {
-                const response = await fetch('/api/relay/all');
+                const response = await fetch('/api/switch/chassis/1');
                 const data = await response.json();
-                renderRelays(data);
+                renderSwitches(data);
             } catch (error) {
-                console.error('Error fetching relay states:', error);
-                showError('Failed to fetch relay states. Check hardware connection or ensure the Flask server is running.');
+                console.error('Error fetching switch states:', error);
+                showError('Failed to fetch switch states. Check hardware connection or ensure the Flask server is running.');
             }
         }
 
-        // Render all relay stacks
-        function renderRelays(relayData) {
+        // Render all switches organized by type
+        function renderSwitches(data) {
             const grid = document.getElementById('relay-grid');
             grid.innerHTML = '';
 
-            const NUM_STACKS = 2;  // Change to 6 when you have all boards
-            for (let stackNum = 0; stackNum < NUM_STACKS; stackNum++) {
-                const stackDiv = document.createElement('div');
-                stackDiv.className = 'stack';
-                
-                const stackHeader = document.createElement('h3');
-                stackHeader.textContent = `Stack ${stackNum}`;
-                stackDiv.appendChild(stackHeader);
-
-                const relayContainer = document.createElement('div');
-                relayContainer.className = 'relay-container';
-
-                const relays = relayData[`stack_${stackNum}`];
-                
-                // Check if there's an error for this stack
-                if (relays && relays.error) {
-                    const errorMsg = document.createElement('div');
-                    errorMsg.className = 'stack-error';
-                    errorMsg.textContent = `Error: ${relays.error}`;
-                    stackDiv.appendChild(errorMsg);
-                } else if (Array.isArray(relays)) {
-                    relays.forEach((state, index) => {
-                        const relayNum = index + 1;
-                        const relayBtn = document.createElement('button');
-                        relayBtn.className = `relay ${state === 1 ? 'on' : 'off'}`;
-                        relayBtn.textContent = `R${relayNum}`;
-                        relayBtn.onclick = () => toggleRelay(stackNum, relayNum, state);
-                        relayContainer.appendChild(relayBtn);
-                    });
-                    stackDiv.appendChild(relayContainer);
-                }
-
-                grid.appendChild(stackDiv);
+            if (!data.switches) {
+                showError('No switch data available');
+                return;
             }
+
+            // Create chassis section
+            const chassisDiv = document.createElement('div');
+            chassisDiv.className = 'stack chassis-section';
+            
+            const chassisHeader = document.createElement('h3');
+            chassisHeader.textContent = '🔌 Chassis Control';
+            chassisDiv.appendChild(chassisHeader);
+
+            const chassisContainer = document.createElement('div');
+            chassisContainer.className = 'relay-container';
+
+            // Add CH1 chassis switch
+            const switchName = 'CH1';
+            if (data.switches[switchName]) {
+                const switchData = data.switches[switchName];
+                const switchBtn = document.createElement('button');
+                switchBtn.className = `relay chassis ${switchData.state === 1 ? 'on' : 'off'}`;
+                switchBtn.textContent = switchName;
+                switchBtn.onclick = () => toggleSwitch(switchName, switchData.state);
+                chassisContainer.appendChild(switchBtn);
+            }
+
+            chassisDiv.appendChild(chassisContainer);
+            grid.appendChild(chassisDiv);
+
+            // Create backboards section
+            const backboardDiv = document.createElement('div');
+            backboardDiv.className = 'stack backboard-section';
+            
+            const backboardHeader = document.createElement('h3');
+            backboardHeader.textContent = '📋 Backboard Controls (CH1A - CH1K)';
+            backboardDiv.appendChild(backboardHeader);
+
+            const backboardContainer = document.createElement('div');
+            backboardContainer.className = 'relay-container';
+
+            // Add all backboard switches
+            const backboards = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+            backboards.forEach(letter => {
+                const switchName = `CH1${letter}`;
+                if (data.switches[switchName]) {
+                    const switchData = data.switches[switchName];
+                    const switchBtn = document.createElement('button');
+                    switchBtn.className = `relay backboard ${switchData.state === 1 ? 'on' : 'off'}`;
+                    switchBtn.textContent = switchName;
+                    switchBtn.onclick = () => toggleSwitch(switchName, switchData.state);
+                    backboardContainer.appendChild(switchBtn);
+                }
+            });
+
+            backboardDiv.appendChild(backboardContainer);
+            grid.appendChild(backboardDiv);
         }
 
-        // Toggle relay state
-        async function toggleRelay(stack, relay, currentState) {
+        // Toggle switch state using the new API
+        async function toggleSwitch(switchName, currentState) {
             const newState = currentState === 1 ? 0 : 1;
             
             try {
-                const response = await fetch(`/api/relay/${stack}/${relay}`, {
+                const response = await fetch(`/api/switch/${switchName}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -94,12 +155,12 @@
                 
                 if (response.ok) {
                     fetchRelayStates(); // Refresh the UI
-                    showSuccess(result.message || `Relay ${relay} on Stack ${stack} toggled`);
+                    showSuccess(result.message || `${switchName} toggled`);
                 } else {
-                    showError(result.error || 'Failed to toggle relay');
+                    showError(result.error || 'Failed to toggle switch');
                 }
             } catch (error) {
-                console.error('Error toggling relay:', error);
+                console.error('Error toggling switch:', error);
                 showError('Network error. Check connection to Raspberry Pi.');
             }
         }
