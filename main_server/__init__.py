@@ -313,15 +313,32 @@ def create_app():
         with pi_status_lock:
             pi_statuses = dict(pi_status_cache)
         
+        # Merge config data with status data
+        merged_statuses = {}
+        for pi_id, pi_config in RASPBERRY_PIS.items():
+            status_data = pi_statuses.get(pi_id, {'status': 'unknown'})
+            merged_statuses[pi_id] = {
+                'ip_address': pi_config.get('ip_address'),
+                'port': pi_config.get('port', 5001),
+                'chassis': pi_config.get('chassis', []),
+                'description': pi_config.get('description', ''),
+                **status_data  # Merge in status, last_check, error, response, etc.
+            }
+            # Add response data if available
+            if status_data.get('response'):
+                pi_response = status_data['response']
+                merged_statuses[pi_id]['total_switches'] = pi_response.get('total_switches')
+                merged_statuses[pi_id]['response_time'] = (time.time() - status_data.get('last_check', time.time())) * 1000
+        
         all_online = all(
             pi.get('status') == 'online' 
-            for pi in pi_statuses.values()
+            for pi in merged_statuses.values()
         )
         
         return jsonify({
             'main_server_status': 'online',
             'all_pis_online': all_online,
-            'raspberry_pis': pi_statuses,
+            'raspberry_pis': merged_statuses,
             'total_pis': len(RASPBERRY_PIS),
             'total_switches': len(router.get_all_switches())
         })

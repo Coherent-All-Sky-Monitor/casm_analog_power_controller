@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASM Main Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .pi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .pi-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .pi-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .pi-card.online {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .pi-card.offline {
+            border-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .pi-card.error {
+            border-color: #ffc107;
+            background: #fffbf0;
+        }
+
+        .pi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .pi-name {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .pi-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .status-online {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-offline {
+            background: #dc3545;
+            color: white;
+        }
+
+        .status-error {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .pi-info {
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .pi-info strong {
+            color: #333;
+        }
+
+        .pi-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .pi-link:hover {
+            background: #5568d3;
+        }
+
+        .system-status {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .system-status h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .status-item {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .error-msg {
+            color: #dc3545;
+            font-size: 0.9em;
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff5f5;
+            border-radius: 5px;
+            border-left: 3px solid #dc3545;
+        }
+
+        .last-update {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 CASM Main Server</h1>
+            <p class="subtitle">Multi-Pi Coordination & Monitoring</p>
+        </header>
+
+        <div class="content">
+            <div class="system-status">
+                <h2>📊 System Overview</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-label">Total Pis</div>
+                        <div class="status-value" id="total-pis">-</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Online</div>
+                        <div class="status-value" id="online-pis" style="color: #28a745;">-</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Offline</div>
+                        <div class="status-value" id="offline-pis" style="color: #dc3545;">-</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Total Chassis</div>
+                        <div class="status-value" id="total-chassis">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 style="margin-bottom: 20px;">🖥️ Raspberry Pis</h2>
+            <div id="pi-grid" class="pi-grid">
+                <div class="loading">Loading Pi status...</div>
+            </div>
+
+            <div class="last-update" id="last-update">
+                Last updated: Never
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchPiStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                renderPiStatus(data);
+                updateSystemOverview(data);
+                updateLastUpdateTime();
+            } catch (error) {
+                console.error('Error fetching Pi status:', error);
+                document.getElementById('pi-grid').innerHTML = 
+                    '<div class="loading" style="color: #dc3545;">Failed to fetch Pi status. Check server connection.</div>';
+            }
+        }
+
+        function renderPiStatus(data) {
+            const grid = document.getElementById('pi-grid');
+            
+            if (!data.raspberry_pis || Object.keys(data.raspberry_pis).length === 0) {
+                grid.innerHTML = '<div class="loading">No Pis configured</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+
+            for (const [piId, piData] of Object.entries(data.raspberry_pis)) {
+                const card = document.createElement('div');
+                card.className = `pi-card ${piData.status}`;
+
+                const statusClass = piData.status === 'online' ? 'status-online' : 
+                                   piData.status === 'offline' ? 'status-offline' : 'status-error';
+                const statusText = piData.status.charAt(0).toUpperCase() + piData.status.slice(1);
+
+                card.innerHTML = `
+                    <div class="pi-header">
+                        <div class="pi-name">${piId}</div>
+                        <div class="pi-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="pi-info">
+                        <strong>IP:</strong> ${piData.ip_address}:${piData.port}<br>
+                        <strong>Chassis:</strong> ${piData.chassis.join(', ')}<br>
+                        ${piData.description ? `<strong>Description:</strong> ${piData.description}<br>` : ''}
+                        ${piData.response_time ? `<strong>Response Time:</strong> ${piData.response_time.toFixed(0)}ms<br>` : ''}
+                        ${piData.total_switches ? `<strong>Total Switches:</strong> ${piData.total_switches}<br>` : ''}
+                    </div>
+                    ${piData.error ? `<div class="error-msg">${piData.error}</div>` : ''}
+                    ${piData.status === 'online' ? `<a href="http://${piData.ip_address}:${piData.port}" class="pi-link" target="_blank">Open Pi Interface →</a>` : ''}
+                `;
+
+                grid.appendChild(card);
+            }
+        }
+
+        function updateSystemOverview(data) {
+            const pis = data.raspberry_pis || {};
+            const piList = Object.values(pis);
+            
+            const total = piList.length;
+            const online = piList.filter(pi => pi.status === 'online').length;
+            const offline = piList.filter(pi => pi.status === 'offline').length;
+            
+            // Count unique chassis
+            const allChassis = new Set();
+            piList.forEach(pi => {
+                if (pi.chassis) {
+                    pi.chassis.forEach(ch => allChassis.add(ch));
+                }
+            });
+
+            document.getElementById('total-pis').textContent = total;
+            document.getElementById('online-pis').textContent = online;
+            document.getElementById('offline-pis').textContent = offline;
+            document.getElementById('total-chassis').textContent = allChassis.size;
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('last-update').textContent = 
+                `Last updated: ${now.toLocaleTimeString()}`;
+        }
+
+        // Auto-refresh every 5 seconds
+        setInterval(fetchPiStatus, 5000);
+
+        // Initial load
+        fetchPiStatus();
+    </script>
+</body>
+</html>
+

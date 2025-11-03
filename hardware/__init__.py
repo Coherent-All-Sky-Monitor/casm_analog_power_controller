@@ -93,17 +93,17 @@ class SwitchMapper:
             self._relay_to_switch[(stack, relay)] = switch_name
     
     def _build_full_mapping(self):
-        """Build the complete mapping for all chassis (logical arrangement)"""
+        """Build the complete mapping for all chassis"""
         mapping = []
         
-        # CH1 chassis + CH1A-K BACboards (12 total, needs 1.5 boards)
+        # CH1 chassis + CH1A-K SNAP-BACboards (12 total, needs 1.5 boards)
         mapping.append(('CH1', 0, 1, 1))  # (name, stack, relay, chassis_num)
         for i, letter in enumerate('ABCDEFGHIJK'):
             stack = 0 if i < 7 else 1
-            relay = (2 + i) if i < 7 else (1 + i - 7)
+            relay = (2 + i) if i < 7 else (1 + i - 7) # 2 + i because first relay is used for CH1
             mapping.append((f'CH1{letter}', stack, relay, 1))
         
-        # CH2 chassis + CH2A-K BACboards (12 total, needs 1.5 boards)
+        # CH2 chassis + CH2A-K SNAP-BACboards (12 total, needs 1.5 boards)
         mapping.append(('CH2', 1, 5, 2))
         for i, letter in enumerate('ABCDEFGHIJK'):
             if i < 3:
@@ -114,14 +114,14 @@ class SwitchMapper:
                 relay = 1 + i - 3
             mapping.append((f'CH2{letter}', stack, relay, 2))
         
-        # CH3 chassis + CH3A-K BACboards (12 total, needs 1.5 boards)
+        # CH3 chassis + CH3A-K SNAP-BACboards (12 total, needs 1.5 boards)
         mapping.append(('CH3', 3, 1, 3))
         for i, letter in enumerate('ABCDEFGHIJK'):
             stack = 3 if i < 7 else 4
             relay = (2 + i) if i < 7 else (1 + i - 7)
             mapping.append((f'CH3{letter}', stack, relay, 3))
         
-        # CH4 chassis + CH4A-J BACboards (11 total, needs 1.375 boards)
+        # CH4 chassis + CH4A-J SNAP-BACboards (11 total)
         mapping.append(('CH4', 4, 5, 4))
         for i, letter in enumerate('ABCDEFGHIJ'):
             if i < 3:

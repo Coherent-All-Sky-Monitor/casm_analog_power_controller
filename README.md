@@ -407,39 +407,6 @@ nano local_config.yaml  # Edit chassis
 
 ---
 
-## Running as Services (Optional)
-
-### Pi Service
-
-Create `/etc/systemd/system/casm-pi.service`:
-```ini
-[Unit]
-Description=CASM Pi Server
-After=network.target
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/casm_analog_power_controller
-ExecStart=/usr/bin/python3 run_pi_server.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable:
-```bash
-sudo systemctl enable casm-pi.service
-sudo systemctl start casm-pi.service
-```
-
-### Main Server Service
-
-Similar setup with `casm-main.service`, adjust paths accordingly.
-
----
-
 ## Key Features
 
 ✅ **Scalable** - 1 to N Pis, add/remove by editing config  
@@ -447,7 +414,7 @@ Similar setup with `casm-main.service`, adjust paths accordingly.
 ✅ **Status Monitoring** - Know when Pis are down  
 ✅ **Flexible** - Any chassis distribution  
 ✅ **Web + CLI** - Browser UI or curl commands  
-✅ **Pi-Agnostic** - Same code on all Pis  
+✅ **Pi Agnostic** - Same code on all Pis  
 
 ---
 
