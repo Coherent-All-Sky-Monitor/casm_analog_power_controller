@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>⚡ CASM Analog Power Controller</h1>
-            <p class="subtitle">Prototype: CH1 Chassis + 11 Backboards (CH1A-K)</p>
+            <p class="subtitle">Prototype: CH1 Chassis + 11 BACboards (CH1A-K)</p>
             <div class="header-controls">
                 <button class="reset-btn" onclick="turnOffAllRelays()">Turn OFF All Relays</button>
                 <button class="on-btn" onclick="turnOnAllRelays()">Turn ON All Relays</button>
@@ -33,7 +33,7 @@ curl -X POST http://localhost:5001/api/switch/CH1 \
   -H "Content-Type: application/json" \
   -d '{"state": 1}'
 
-# Turn CH1A backboard OFF
+# Turn CH1A BACboard OFF
 curl -X POST http://localhost:5001/api/switch/CH1A \
   -H "Content-Type: application/json" \
   -d '{"state": 0}'</code></pre>
@@ -109,33 +109,33 @@ curl -X POST http://localhost:5001/api/relay/0/1 \
             chassisDiv.appendChild(chassisContainer);
             grid.appendChild(chassisDiv);
 
-            // Create backboards section
-            const backboardDiv = document.createElement('div');
-            backboardDiv.className = 'stack backboard-section';
-            
-            const backboardHeader = document.createElement('h3');
-            backboardHeader.textContent = '📋 Backboard Controls (CH1A - CH1K)';
-            backboardDiv.appendChild(backboardHeader);
+            // Create BACboards section
+            const bacboardDiv = document.createElement('div');
+            bacboardDiv.className = 'stack bacboard-section';
 
-            const backboardContainer = document.createElement('div');
-            backboardContainer.className = 'relay-container';
+            const bacboardHeader = document.createElement('h3');
+            bacboardHeader.textContent = '📋 BACboard Controls (CH1A - CH1K)';
+            bacboardDiv.appendChild(bacboardHeader);
 
-            // Add all backboard switches
-            const backboards = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
-            backboards.forEach(letter => {
+            const bacboardContainer = document.createElement('div');
+            bacboardContainer.className = 'relay-container';
+
+            // Add all BACboard switches
+            const bacboards = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+            bacboards.forEach(letter => {
                 const switchName = `CH1${letter}`;
                 if (data.switches[switchName]) {
                     const switchData = data.switches[switchName];
                     const switchBtn = document.createElement('button');
-                    switchBtn.className = `relay backboard ${switchData.state === 1 ? 'on' : 'off'}`;
+                    switchBtn.className = `relay bacboard ${switchData.state === 1 ? 'on' : 'off'}`;
                     switchBtn.textContent = switchName;
                     switchBtn.onclick = () => toggleSwitch(switchName, switchData.state);
-                    backboardContainer.appendChild(switchBtn);
+                    bacboardContainer.appendChild(switchBtn);
                 }
             });
 
-            backboardDiv.appendChild(backboardContainer);
-            grid.appendChild(backboardDiv);
+            bacboardDiv.appendChild(bacboardContainer);
+            grid.appendChild(bacboardDiv);
         }
 
         // Toggle switch state using the new API

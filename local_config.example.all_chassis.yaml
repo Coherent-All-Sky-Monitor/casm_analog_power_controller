@@ -1,0 +1,8 @@
+# Example: Single Pi controlling all 4 chassis
+# Copy to local_config.yaml and customize
+
+pi_id: "main_pi"
+chassis_controlled: [1, 2, 3, 4]  # All chassis
+num_relay_boards: 6                # 6 boards total
+relays_per_board: 8
+

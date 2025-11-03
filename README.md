@@ -1,266 +1,493 @@
 # CASM Analog Power Controller
 
-A Flask-based web application for controlling Sequent Microsystems 16-relay boards on Raspberry Pi.
+A scalable Flask-based HTTP request system for controlling power to the CASM analog chain through Sequent Microsystems 8-relay boards on Raspberry Pis.
 
-## 🎯 Project Structure
+## System Overview
 
-```
-casm_analog_power_controller/
-├── hardware/                     # Production code (Hardware control)
-│   ├── __init__.py              # Flask app with SM16relind integration
-│   ├── templates/
-│   │   └── index.html           # Hardware controller UI
-│   └── static/
-│       └── style.css            # Styling
-│
-├── simulation/                   # Simulation code (Testing without hardware)
-│   ├── __init__.py              # Flask app with simulated relays
-│   ├── templates/
-│   │   └── index.html           # Simulator UI
-│   └── static/
-│       └── style.css            # Styling
-│
-├── 16relind-rpi/                # Cloned hardware library repository
-├── run_hardware.py              # Startup script for hardware mode
-├── run_simulation.py            # Startup script for simulation mode
-├── requirements.txt             # Python dependencies
-├── START_HERE.md                # Quick start guide
-├── PROJECT_STRUCTURE.md         # Detailed structure info
-└── README.md                    # This file
-```
+**Two Stages:**
+- **Main Server/Head Node** - Routes requests to appropriate Pi (port 5000)
+- **Raspberry Pis** - Control physical relay boards (port 5001 each)
 
-## 🔧 Hardware Configuration
+**Hardware:**
+- 47 switches total: CH1-4 (full chassis power) + CH1A-K, CH2A-K, CH3A-K, CH4A-J (Per SNAP BACboards)
+- Sequent Microsystems 8-relay HAT boards
+- **Two deployment options:**
+  - **Option 1 (One Pi)**: 6 relay boards on single Pi
+  - **Option 2 (Four Pis)**: 8 relay boards total (2 per Pi, each Pi controls one chassis)
 
-### Relay Boards
-- **Device**: Sequent Microsystems 16-Relay Stackable HAT
-- **Total Setup**: 6 stacks × 16 relays = 96 total relays
-- **Stack Levels**: 0-5 (configured via jumpers on each board)
-- **I2C Port**: 1 (Raspberry Pi default)
+---
 
-### Library Information
-- **Library**: SM16relind (lib16relind)
-- **Version**: 1.0.4
-- **Repository**: https://github.com/SequentMicrosystems/16relind-rpi
+## SETUP
 
-## 📦 Installation
+### Step 1: Configure Each Raspberry Pi
 
-### Prerequisites
 ```bash
-# On Raspberry Pi, ensure I2C is enabled
-sudo raspi-config
-# Navigate to: Interface Options -> I2C -> Enable
+# On each Pi
+ssh pi@<pi-ip>
+
+# Install dependencies
+pip3 install -r requirements.txt
+
+# Create config (tells Pi which chassis it controls)
+cp local_config.example.all_chassis.yaml local_config.yaml # copies example YAML file
+nano local_config.yaml # edit the YAML file
 ```
 
-### Install Dependencies
-```bash
-# Install Python packages
-pip install -r requirements.txt
-
-# Clone and install hardware library (already done)
-git clone https://github.com/SequentMicrosystems/16relind-rpi.git
-cd 16relind-rpi/python
-sudo python3 setup.py install
+**Edit `local_config.yaml`:** # this is the YAML file on the individual Pi
+```yaml
+pi_id: "pi_1"
+chassis_controlled: [1, 2, 3, 4]  # Which chassis this Pi controls
+num_relay_boards: 6               # Number of HATs connected to this Pi
+relays_per_board: 8
 ```
 
-## 🚀 Running the Application
-
-### Production Mode (With Hardware)
+**Start Pi server:**
 ```bash
-# Run the hardware controller
-python3 run_hardware.py
-# OR
-python -m flask --app hardware run --host=0.0.0.0 --port=5001
+python3 run_pi_server.py
 ```
 
-### Simulation Mode (Without Hardware)
+### Step 2: Configure Main Server
+
 ```bash
-# Run the simulator for testing
-python3 run_simulation.py
-# OR
-python -m flask --app simulation run --host=0.0.0.0 --port=5001
+# On main server
+cd casm_analog_power_controller
+
+# Create config (tells main server where all Pis are)
+cp main_config.example.single_pi.yaml main_config.yaml
+nano main_config.yaml
 ```
 
-Access the web interface at: `http://localhost:5001` or `http://<raspberry-pi-ip>:5001`
+**Edit `main_config.yaml` (on main server):**
+```yaml
+raspberry_pis:
+  pi_1:
+    ip_address: "192.168.1.100"    # Pi's IP address
+    port: 5001
+    chassis: [1, 2]                # Must match Pi's local_config.yaml
+  pi_2:
+    ip_address: "192.168.1.101"
+    port: 5001
+    chassis: [3, 4]
 
-## 📡 API Endpoints
-
-### Get Single Relay State
-```bash
-GET /api/relay/<stack>/<relay>
-
-# Example: Get state of Stack 0, Relay 1
-curl http://localhost:5001/api/relay/0/1
-
-# Response:
-{
-  "stack": 0,
-  "relay": 1,
-  "state": 1,
-  "status": "ON"
-}
+status_check_interval: 30 # Amount of seconds in between requests for the status of the Pis
+request_timeout: 5
 ```
 
-### Set Single Relay State
+**Start main server:**
 ```bash
-POST /api/relay/<stack>/<relay>
-Content-Type: application/json
-Body: {"state": 0 or 1}
+python3 run_main_server.py
+```
 
-# Example: Turn ON Stack 0, Relay 1
-curl -X POST http://localhost:5001/api/relay/0/1 \
+### Step 3: Test
+
+```bash
+# Check system status
+curl http://main-server:5000/api/status
+
+# Control a switch
+curl -X POST http://main-server:5000/api/switch/CH1 \
   -H "Content-Type: application/json" \
   -d '{"state": 1}'
 
-# Example: Turn OFF Stack 0, Relay 1
-curl -X POST http://localhost:5001/api/relay/0/1 \
+# Or open browser
+# http://main-server:5000
+```
+
+---
+
+## Configuration Details
+
+### Pi Configuration (`local_config.yaml`)
+Each Pi needs to know which chassis it controls.
+
+**Examples:**
+
+**Option 1 - Single Pi (6 boards total):**
+```yaml
+pi_id: "main_pi"
+chassis_controlled: [1, 2, 3, 4]  # Controls all chassis
+num_relay_boards: 6               # 6 boards on this one Pi
+```
+
+**Option 2 - Four Pis (2 boards each):**
+
+Pi #1:
+```yaml
+pi_id: "pi_chassis_1"
+chassis_controlled: [1]
+num_relay_boards: 2    # 2 boards for chassis 1
+```
+
+Pi #2:
+```yaml
+pi_id: "pi_chassis_2"
+chassis_controlled: [2]
+num_relay_boards: 2    # 2 boards for chassis 2
+```
+
+Pi #3:
+```yaml
+pi_id: "pi_chassis_3"
+chassis_controlled: [3]
+num_relay_boards: 2    # 2 boards for chassis 3
+```
+
+Pi #4:
+```yaml
+pi_id: "pi_chassis_4"
+chassis_controlled: [4]
+num_relay_boards: 2    # 2 boards for chassis 4
+```
+
+**Important:** 
+- Stack numbers are LOCAL (always start at 0 on each Pi)
+- `num_relay_boards` should match physical hardware connected to that Pi
+
+### Main Server Configuration (`main_config.yaml`)
+Main server needs to know where all Pis are.
+
+**Important:** 
+- Use static IPs for Pis
+- Chassis assignment in `main_config.yaml` must match each Pi's `local_config.yaml`
+- Each chassis can only be assigned to ONE Pi
+---
+
+## Usage
+
+### Webpage Front End
+
+Open browser:
+- Main server: `http://<main-server-ip>:5000`
+- Individual Pi: `http://<pi-ip>:5001`
+
+Click switches to toggle on/off.
+
+### Command Line Using Curl Commands
+
+**Control switches:**
+```bash
+# Turn on
+curl -X POST http://main-server:5000/api/switch/CH1 \
   -H "Content-Type: application/json" \
-  -d '{"state": 0}'
+  -d '{"state": 1}' # state 1 is on
+
+# Turn off
+curl -X POST http://main-server:5000/api/switch/CH2A \
+  -H "Content-Type: application/json" \
+  -d '{"state": 0}' # state 0 is off
+
+# Get status
+curl http://main-server:5000/api/switch/CH1
 ```
 
-### Get All Relays State
+**Monitor system:**
 ```bash
-GET /api/relay/all
+# Check all Pis status
+curl http://main-server:5000/api/status
 
-# Example:
-curl http://localhost:5001/api/relay/all
+# List all switches
+curl http://main-server:5000/api/switch/list
 
-# Response:
-{
-  "stack_0": [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  "stack_1": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  ...
-}
+# Get chassis switches
+curl http://main-server:5000/api/switch/chassis/1
 ```
 
-### Get Single Stack State
+**Direct Pi access (bypasses main server):**
 ```bash
-GET /api/relay/stack/<stack>
-
-# Example: Get all relays in Stack 0
-curl http://localhost:5001/api/relay/stack/0
-
-# Response:
-{
-  "stack": 0,
-  "relays": [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-}
+curl -X POST http://192.168.1.100:5001/api/switch/CH1 -d '{"state": 1}'
 ```
 
-### Reset All Relays
+### Bash Script Example
+
 ```bash
-POST /api/relay/reset
+#!/bin/bash
+MAIN="http://192.168.1.50:5000" # replace 192.158.1.50 with main server's IP address
 
-# Example: Turn OFF all relays
-curl -X POST http://localhost:5001/api/relay/reset \
-  -H "Content-Type: application/json"
+# Check status before starting
+STATUS=$(curl -s $MAIN/api/status)
+echo "System status: $STATUS"
+
+# Power up chassis 1
+echo "Powering up chassis 1..."
+curl -X POST $MAIN/api/switch/CH1 -H "Content-Type: application/json" -d '{"state": 1}'
+sleep 1
+
+# Turn on BACboards
+for switch in CH1A CH1B CH1C CH1D CH1E; do
+    curl -X POST $MAIN/api/switch/$switch -H "Content-Type: application/json" -d '{"state": 1}'
+done
+
+echo "Done!"
 ```
 
-### Health Check
+---
+
+## API Reference
+
+### Switch Control With Switch Name
+- `POST /api/switch/<name>` - Set switch state (`{"state": 0 or 1}`)
+- `GET /api/switch/<name>` - Get switch state
+- `GET /api/switch/list` - List all switches
+- `GET /api/switch/chassis/<num>` - Get chassis switches (1-4)
+
+### System Monitoring
+- `GET /api/status` - System status (all Pis)
+- `GET /api/pis` - List all configured Pis
+
+### Switch Control With Relay Number
+- `POST /api/relay/<stack>/<relay>` - Set relay (`{"state": 0 or 1}`)
+- `GET /api/relay/<stack>/<relay>` - Get relay state
+- `GET /api/relay/stack/<stack>` - Get all relays in stack
+
+**Switch Names:**
+- Chassis: `CH1`, `CH2`, `CH3`, `CH4`
+- Individual SNAPs and BACboards: `CH1A-K`, `CH2A-K`, `CH3A-K`, `CH4A-J`
+- Case-insensitive (`CH1` = `ch1`)
+
+---
+
+## Deployment Options
+
+### Option 1: Single Pi (6 Relay Boards)
+
+**Hardware:** 1 Raspberry Pi with 6 relay boards (48 relays total)
+
+**Main server config (`main_config.yaml`):**
+```yaml
+raspberry_pis:
+  main_pi:
+    ip_address: "192.168.1.100"    # Or "localhost" if main server runs on same Pi
+    port: 5001
+    chassis: [1, 2, 3, 4]          # This Pi controls all 4 chassis
+
+status_check_interval: 30
+request_timeout: 5
+```
+
+**Pi config (`local_config.yaml` on the Pi):**
+```yaml
+pi_id: "main_pi"
+chassis_controlled: [1, 2, 3, 4]   # All chassis on this Pi
+num_relay_boards: 6                # 6 boards physically connected
+relays_per_board: 8
+```
+
+**Pros:** Simple, fewer machines to manage  
+**Cons:** Single point of failure, all relays on one Pi
+
+---
+
+### Option 2: Four Pis (8 Relay Boards Total)
+
+**Hardware:** 4 Raspberry Pis, each with 2 relay boards (16 relays each)
+- Pi #1: Chassis 1 (2 boards)
+- Pi #2: Chassis 2 (2 boards)
+- Pi #3: Chassis 3 (2 boards)
+- Pi #4: Chassis 4 (2 boards)
+
+**Main server config (`main_config.yaml`):**
+```yaml
+raspberry_pis:
+  pi_chassis_1:
+    ip_address: "192.168.1.100"
+    port: 5001
+    chassis: [1]
+  
+  pi_chassis_2:
+    ip_address: "192.168.1.101"
+    port: 5001
+    chassis: [2]
+  
+  pi_chassis_3:
+    ip_address: "192.168.1.102"
+    port: 5001
+    chassis: [3]
+  
+  pi_chassis_4:
+    ip_address: "192.168.1.103"
+    port: 5001
+    chassis: [4]
+
+status_check_interval: 30
+request_timeout: 5
+```
+
+**Each Pi config (`local_config.yaml`):**
+
+Pi #1:
+```yaml
+pi_id: "pi_chassis_1"
+chassis_controlled: [1]
+num_relay_boards: 2    # 2 boards for chassis 1
+relays_per_board: 8
+```
+
+Pi #2:
+```yaml
+pi_id: "pi_chassis_2"
+chassis_controlled: [2]
+num_relay_boards: 2    # 2 boards for chassis 2
+relays_per_board: 8
+```
+
+Pi #3:
+```yaml
+pi_id: "pi_chassis_3"
+chassis_controlled: [3]
+num_relay_boards: 2    # 2 boards for chassis 3
+relays_per_board: 8
+```
+
+Pi #4:
+```yaml
+pi_id: "pi_chassis_4"
+chassis_controlled: [4]
+num_relay_boards: 2    # 2 boards for chassis 4
+relays_per_board: 8
+```
+
+---
+
+## Troubleshooting
+
+### Pi shows as "unreachable"
+
+**Check:**
+1. Is Pi powered on and running the server?
+2. Can you ping it? `ping 192.168.1.100`
+3. Is the IP correct in `main_config.yaml`?
+4. Test directly: `curl http://192.168.1.100:5001/api/status`
+
+**Fix:**
+- Restart Pi server: `ssh pi@<ip>` then `python3 run_pi_server.py`
+- Check network connection
+- Verify firewall allows port 5001
+
+### "Invalid switch name" error
+
+**Check:**
+1. Spelling correct? (`CH1` not `C1`)
+2. Is that Pi configured for that chassis?
+3. List valid switches: `curl http://main-server:5000/api/switch/list`
+
+### Wrong relay activates
+
+**Check:**
+1. Verify `chassis_controlled` in Pi's `local_config.yaml`
+2. Verify `chassis` in main server's `main_config.yaml`
+3. They must match!
+4. Restart both Pi and main server after config changes
+
+### Main server can't start
+
+**Error:** `Main server config not found`
+
+**Fix:**
 ```bash
-GET /api/health
-
-# Example: Check hardware connection status
-curl http://localhost:5001/api/health
-
-# Response:
-{
-  "status": "ok",
-  "stacks": {
-    "stack_0": "connected",
-    "stack_1": "connected",
-    ...
-  }
-}
+cp main_config.example.single_pi.yaml main_config.yaml
+nano main_config.yaml  # Edit IPs
 ```
 
-## 🔌 Hardware Details
+### Pi server can't start
 
-### SM16relind Class Methods
+**Error:** `No config file found`
 
-#### Initialize Card
-```python
-import lib16relind as SM16relind
-card = SM16relind.SM16relind(stack=0, i2c=1)
-```
-
-#### Set Single Relay
-```python
-card.set(relay, val)
-# relay: 1-16
-# val: 0 (OFF) or 1 (ON)
-```
-
-#### Get Single Relay State
-```python
-state = card.get(relay)
-# Returns: 0 or 1
-```
-
-#### Set All Relays (Bitmap)
-```python
-card.set_all(val)
-# val: 16-bit bitmap (0 = all off, 65535 = all on)
-```
-
-#### Get All Relays (Bitmap)
-```python
-bitmap = card.get_all()
-# Returns: 16-bit bitmap [0..65535]
-```
-
-## 🎨 Features
-
-### Web Interface
-- ✅ Real-time relay state visualization
-- ✅ Click-to-toggle relay control
-- ✅ Auto-refresh every 2 seconds
-- ✅ Health status monitoring
-- ✅ Reset all relays button
-- ✅ Modern, responsive UI
-
-### Error Handling
-- Hardware connection failures
-- Invalid stack/relay numbers
-- I2C communication errors
-- Graceful degradation
-
-## 🧪 Development
-
-### Testing Without Hardware
-Use the simulation mode to develop and test the API without physical hardware:
+**Fix:**
 ```bash
-python3 run_simulation.py
+cp local_config.example.one_chassis.yaml local_config.yaml
+nano local_config.yaml  # Edit chassis
 ```
 
-### Debugging
+**Error:** `Failed to initialize relay boards`
+
+**Fix:**
+- Enable I2C: `sudo raspi-config` → Interface Options → I2C
+- Check boards connected: `i2cdetect -y 1`
+- Verify jumper settings on boards
+
+---
+
+## Running as Services (Optional)
+
+### Pi Service
+
+Create `/etc/systemd/system/casm-pi.service`:
+```ini
+[Unit]
+Description=CASM Pi Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/casm_analog_power_controller
+ExecStart=/usr/bin/python3 run_pi_server.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable:
 ```bash
-# Both run_hardware.py and run_simulation.py have debug=True enabled
-# Just run them normally for debug mode
-python3 run_simulation.py
+sudo systemctl enable casm-pi.service
+sudo systemctl start casm-pi.service
 ```
 
-## 📝 Notes
+### Main Server Service
 
-- **Stack Numbers**: 0-5 (configured via hardware jumpers)
-- **Relay Numbers**: 1-16 (API uses 1-based indexing)
-- **Bitmap Encoding**: LSB = Relay 1, MSB = Relay 16
-- **I2C Address**: Automatically calculated from stack level
+Similar setup with `casm-main.service`, adjust paths accordingly.
 
-## 🔐 Security Considerations
+---
 
-When deploying to production:
-1. Use a reverse proxy (nginx/Apache)
-2. Add authentication middleware
-3. Enable HTTPS
-4. Restrict network access
-5. Use environment variables for configuration
+## Key Features
 
-## 📚 Additional Resources
+✅ **Scalable** - 1 to N Pis, add/remove by editing config  
+✅ **Unified API** - Same commands regardless of Pi count  
+✅ **Status Monitoring** - Know when Pis are down  
+✅ **Flexible** - Any chassis distribution  
+✅ **Web + CLI** - Browser UI or curl commands  
+✅ **Pi-Agnostic** - Same code on all Pis  
 
-- [SM16relind GitHub Repository](https://github.com/SequentMicrosystems/16relind-rpi)
-- [Sequent Microsystems Documentation](https://sequentmicrosystems.com/)
-- [Flask Documentation](https://flask.palletsprojects.com/)
+---
 
-## 📄 License
+## Important Notes
+
+- **Use static IPs** for Pis
+- **Check status** before experiments
+- **Configs must match** between main server and Pis
+- **Stack numbers are local** on each Pi (always start at 0)
+- **Each chassis** can only be controlled by ONE Pi
+
+---
+
+## Files
+
+```
+casm_analog_power_controller/
+├── hardware/                 # Pi server code
+├── main_server/             # Main coordinator code
+├── simulation/              # Simulator (no hardware needed)
+├── run_pi_server.py         # Start Pi server
+├── run_main_server.py       # Start main server
+├── run_simulation.py        # Start simulator
+├── main_config.yaml         # Main server config
+├── local_config.yaml        # Pi config (one per Pi)
+├── main_config.example.*.yaml    # Main server config examples
+├── local_config.example.*.yaml   # Pi config examples
+└── requirements.txt         # Dependencies
+```
+
+---
+
+## Resources
+
+- [lib8relind GitHub](https://github.com/SequentMicrosystems/8relind-rpi) - Hardware library
+- [Sequent Microsystems](https://sequentmicrosystems.com/) - Board manufacturer
+- [Flask Documentation](https://flask.palletsprojects.com/) - Web framework
+
+---
+
+## License
 
 See LICENSE file for details.

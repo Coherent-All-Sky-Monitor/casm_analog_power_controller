@@ -1,0 +1,38 @@
+# Example: Four Pi Configuration
+# Each Pi controls one chassis
+# Copy to config.yaml and customize
+
+raspberry_pis:
+  pi_1:
+    ip_address: "192.168.1.100"
+    port: 5001
+    chassis: [1]
+    description: "Chassis 1 Pi"
+  
+  pi_2:
+    ip_address: "192.168.1.101"
+    port: 5001
+    chassis: [2]
+    description: "Chassis 2 Pi"
+  
+  pi_3:
+    ip_address: "192.168.1.102"
+    port: 5001
+    chassis: [3]
+    description: "Chassis 3 Pi"
+  
+  pi_4:
+    ip_address: "192.168.1.103"
+    port: 5001
+    chassis: [4]
+    description: "Chassis 4 Pi"
+
+status_check_interval: 30
+request_timeout: 5
+
+# Corresponding local_config.yaml on each Pi:
+#   Pi 1: pi_id: "pi_1", chassis_controlled: [1], num_relay_boards: 2 (or N boards)
+#   Pi 2: pi_id: "pi_2", chassis_controlled: [2], num_relay_boards: 2 (or N boards)
+#   Pi 3: pi_id: "pi_3", chassis_controlled: [3], num_relay_boards: 2 (or N boards)
+#   Pi 4: pi_id: "pi_4", chassis_controlled: [4], num_relay_boards: 2 (or N boards)
+

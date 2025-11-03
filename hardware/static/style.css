@@ -192,12 +192,12 @@ h1 {
     color: #7f8c8d;
 }
 
-/* Backboard-specific styles */
-.backboard-section {
+/* BACboard-specific styles */
+.bacboard-section {
     background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
 }
 
-.relay.backboard {
+.relay.bacboard {
     font-size: 0.85rem;
 }
 

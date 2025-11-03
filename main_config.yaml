@@ -1,0 +1,31 @@
+# Main Server Configuration
+# This file tells the main server where all Raspberry Pis are located
+# and which chassis each Pi controls
+#
+# Add/remove/modify Pis as needed - the system adapts automatically
+
+raspberry_pis:
+  pi_1:
+    ip_address: "192.168.1.100"  # Change to your Pi's actual IP
+    port: 5001
+    chassis: [1, 2, 3, 4]        # Which chassis this Pi controls (1-4)
+    description: "Main Pi"        # Optional description
+  
+  # Add more Pis as needed:
+  # pi_2:
+  #   ip_address: "192.168.1.101"
+  #   port: 5001
+  #   chassis: [2]
+  #   description: "Chassis 2 Pi"
+
+# Status Check Settings
+status_check_interval: 30  # Check Pi status every N seconds
+request_timeout: 5          # Timeout for requests to Pis (seconds)
+
+# Configuration Notes:
+# - Each Pi can control any combination of chassis [1-4]
+# - Each chassis can only be assigned to ONE Pi
+# - chassis list in config.yaml must match each Pi's local_config.yaml
+# - Add/remove Pi entries as needed - no code changes required
+# - Use static IPs for production deployments
+

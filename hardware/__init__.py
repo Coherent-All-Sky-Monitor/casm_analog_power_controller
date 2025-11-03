@@ -1,82 +1,161 @@
 from flask import Flask, jsonify, request, render_template
 import lib8relind as relay
+import yaml
+import os
+from pathlib import Path
 
-# Configuration for relay boards (8 relays per board)
-# Stack levels 0-5 mapped to hardware jumper settings
+# Configuration for RPi with HATs with 8 relays per board.
 
-# ⚠️ CURRENTLY TESTING WITH 2 BOARDS (16 relays)
-# Change NUM_STACKS to 6 for 48 total relays
-NUM_STACKS = 2  # Change to 6 when you have all boards
-RELAYS_PER_BOARD = 8
+# Load configuration from YAML file
+def load_config():
+    """Load configuration from local_config.yaml"""
+    config_path = Path(__file__).parent.parent / 'local_config.yaml'
+    
+    if not config_path.exists(): # Check if the congif file exists
+        raise FileNotFoundError(
+            f"\n❌ ERROR: Configuration file not found at {config_path}\n\n"
+            f"Please create local_config.yaml by copying an example:\n"
+            f"  cp local_config.example.all_chassis.yaml local_config.yaml\n"
+            f"  nano local_config.yaml\n\n"
+            f"See README.md for setup instructions."
+        )
+    
+    try: # Opens the config file and loads it
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+            print(f"✅ Loaded config from {config_path}")
+            return config
+    except Exception as e:  # If the config file isn't a valid YAML file
+        raise Exception(
+            f"\n❌ ERROR: Failed to load config from {config_path}\n"
+            f"Error: {e}\n\n"
+            f"Check that the file is valid YAML format."
+        )
+
+# Load configuration from YAML file
+CONFIG = load_config()
+NUM_STACKS = CONFIG['num_relay_boards']
+RELAYS_PER_BOARD = CONFIG['relays_per_board']
+CHASSIS_CONTROLLED = CONFIG['chassis_controlled']
+PI_ID = CONFIG['pi_id']
 
 
 class SwitchMapper:
     """
-    Maps logical switch names (CH1, CH1A, etc.) to physical relay positions (stack, relay).
+    Maps switch names representing real hardware(CH1, CH1A, etc.) to stack/relay number (stack, relay).
     
-    Layout:
+    Layout with 4 chassis and 43 planks:
     - 4 chassis switches: CH1, CH2, CH3, CH4
-    - 43 backboard switches: CH1A-K (11), CH2A-K (11), CH3A-K (11), CH4A-J (10)
+    - 43 SNAP-BACboards switches: CH1A-K (11), CH2A-K (11), CH3A-K (11), CH4A-J (10)
     
-    Sequential mapping across boards:
+    Sequential mapping across boards (when controlling all chassis):
     Stack 0: CH1, CH1A-G
     Stack 1: CH1H-K, CH2, CH2A-C
     Stack 2: CH2D-K, CH3
     Stack 3: CH3A-G, CH4
     Stack 4: CH3H-K, CH4A-C
     Stack 5: CH4D-J, SPARE
+    
+    NOTE: This class maps the chassis listed in the config file (so not necessarily all 4 chassis)
+    Each Pi's relay boards start at stack 0 (local numbering).
     """
     
-    def __init__(self):
+    def __init__(self, chassis_controlled=None):
+        """
+        Initialize the mapper with specific chassis to control.
+        
+        Args:
+            chassis_controlled: List of chassis numbers (1-4) this Pi controls.
+        """
         self._switch_to_relay = {}
         self._relay_to_switch = {}
+        self.chassis_controlled = chassis_controlled or [1, 2, 3, 4]
         self._build_mapping()
     
     def _build_mapping(self):
-        """Build the bidirectional mapping between switch names and relay positions"""
+        """Build the bidirectional mapping between switch names and relay positions
+        
+        This dynamically builds mappings ONLY for the chassis this Pi controls.
+        Stack numbers are always local (starting from 0) on each Pi.
+        """
         mapping = []  # Temporary list of tuples: (switch_name, stack, relay)
         
-        # CH1 chassis + CH1A-K backboards (12 total)
-        mapping.append(('CH1', 0, 1))  # CH1 chassis lives on stack 0, relay 1
-        for i, letter in enumerate('ABCDEFGHIJK'):  # Iterate 11 backboards: i=0..10 for A..K
-            stack = 0 if i < 7 else 1  # A-G on stack 0; H-K on stack 1
-            relay = (2 + i) if i < 7 else (1 + i - 7)  # A->2..G->8; H->1..K->4
-            mapping.append((f'CH1{letter}', stack, relay))  # Add mapping for CH1A..CH1K
+        # Build full mapping table first, then filter by controlled chassis
+        # Full mapping represents the logical arrangement across all possible chassis
+        full_mapping = self._build_full_mapping()
         
-        # CH2 chassis + CH2A-K backboards (12 total)
-        mapping.append(('CH2', 1, 5))  # Chassis 2
+        # Now extract only the chassis this Pi controls and renumber stacks locally
+        mapping = self._extract_controlled_chassis(full_mapping)
+        
+        # Build bidirectional dictionaries
+        for switch_name, stack, relay in mapping:
+            self._switch_to_relay[switch_name] = (stack, relay)
+            self._relay_to_switch[(stack, relay)] = switch_name
+    
+    def _build_full_mapping(self):
+        """Build the complete mapping for all chassis (logical arrangement)"""
+        mapping = []
+        
+        # CH1 chassis + CH1A-K BACboards (12 total, needs 1.5 boards)
+        mapping.append(('CH1', 0, 1, 1))  # (name, stack, relay, chassis_num)
         for i, letter in enumerate('ABCDEFGHIJK'):
-            if i < 3:  # CH2A-C on stack 1
+            stack = 0 if i < 7 else 1
+            relay = (2 + i) if i < 7 else (1 + i - 7)
+            mapping.append((f'CH1{letter}', stack, relay, 1))
+        
+        # CH2 chassis + CH2A-K BACboards (12 total, needs 1.5 boards)
+        mapping.append(('CH2', 1, 5, 2))
+        for i, letter in enumerate('ABCDEFGHIJK'):
+            if i < 3:
                 stack = 1
                 relay = 6 + i
-            else:  # CH2D-K on stack 2
+            else:
                 stack = 2
                 relay = 1 + i - 3
+            mapping.append((f'CH2{letter}', stack, relay, 2))
         
-            mapping.append((f'CH2{letter}', stack, relay))
-        
-        # CH3 chassis + CH3A-K backboards (12 total)
-        mapping.append(('CH3', 3, 1))  # Chassis 3
+        # CH3 chassis + CH3A-K BACboards (12 total, needs 1.5 boards)
+        mapping.append(('CH3', 3, 1, 3))
         for i, letter in enumerate('ABCDEFGHIJK'):
             stack = 3 if i < 7 else 4
             relay = (2 + i) if i < 7 else (1 + i - 7)
-            mapping.append((f'CH3{letter}', stack, relay))
+            mapping.append((f'CH3{letter}', stack, relay, 3))
         
-        # CH4 chassis + CH4A-J backboards (11 total)
-        mapping.append(('CH4', 4, 5))  # Chassis 4
+        # CH4 chassis + CH4A-J BACboards (11 total, needs 1.375 boards)
+        mapping.append(('CH4', 4, 5, 4))
         for i, letter in enumerate('ABCDEFGHIJ'):
-            if i < 3:  # CH4A-C on stack 4
+            if i < 3:
                 stack = 4
                 relay = 6 + i
-            else:  # CH4D-J on stack 5
+            else:
                 stack = 5
                 relay = 1 + i - 3
-            mapping.append((f'CH4{letter}', stack, relay))
+            mapping.append((f'CH4{letter}', stack, relay, 4))
         
-        # Build bidirectional dictionaries
-        for switch_name, stack, relay in mapping:  # Iterate each (name, stack, relay) triple
-            self._switch_to_relay[switch_name] = (stack, relay)  # Map logical name -> physical position
-            self._relay_to_switch[(stack, relay)] = switch_name  # Map physical position -> logical name
+        return mapping
+    
+    def _extract_controlled_chassis(self, full_mapping):
+        """Extract and renumber mappings for only the chassis this Pi controls"""
+        # Filter mappings to only include controlled chassis
+        filtered = [m for m in full_mapping if m[3] in self.chassis_controlled]
+        
+        if not filtered:
+            return []
+        
+        # Find the unique stack numbers used by controlled chassis
+        used_stacks = sorted(set(m[1] for m in filtered))
+        
+        # Create a mapping from global stack numbers to local stack numbers
+        stack_renumbering = {global_stack: local_idx 
+                            for local_idx, global_stack in enumerate(used_stacks)}
+        
+        # Renumber stacks to start from 0
+        result = []
+        for switch_name, global_stack, relay, chassis_num in filtered:
+            local_stack = stack_renumbering[global_stack]
+            result.append((switch_name, local_stack, relay))
+        
+        return result
     
     def get_relay_position(self, switch_name):
         """
@@ -112,8 +191,8 @@ class SwitchMapper:
         return switch_name.upper() in self._switch_to_relay
 
 
-# Global switch mapper instance
-switch_mapper = SwitchMapper()
+# Global switch mapper instance - uses configured chassis
+switch_mapper = SwitchMapper(chassis_controlled=CHASSIS_CONTROLLED)
 
 
 def create_app():
@@ -123,6 +202,19 @@ def create_app():
     def index():
         """Render the web UI showing all relay states"""
         return render_template('index.html')
+    
+    @app.route('/api/status', methods=['GET'])
+    def status_check():
+        """Status check endpoint for main server to monitor this Pi"""
+        return jsonify({
+            'status': 'online',
+            'pi_id': PI_ID,
+            'chassis_controlled': CHASSIS_CONTROLLED,
+            'num_relay_boards': NUM_STACKS,
+            'relays_per_board': RELAYS_PER_BOARD,
+            'total_switches': len(switch_mapper.get_all_switches()),
+            'switches': switch_mapper.get_all_switches()
+        })
 
     @app.route('/api/relay/<int:stack>/<int:relay_num>', methods=['GET'])
     def get_relay_state(stack, relay_num):
@@ -301,7 +393,7 @@ def create_app():
             'results': results
         })
 
-    # ========== NEW SWITCH-BASED API ENDPOINTS ==========
+    # ========== Switch Name Based API Endpoints ==========
     
     @app.route('/api/switch/<switch_name>', methods=['GET'])
     def get_switch_state(switch_name):
@@ -427,7 +519,7 @@ def create_app():
             except Exception as e:
                 switches[chassis_name] = {'error': str(e)}
         
-        # Get backboard switches
+        # Get BACboard switches
         max_letter = 'J' if chassis_num == 4 else 'K'
         for letter in 'ABCDEFGHIJK':
             if letter > max_letter:
@@ -441,7 +533,7 @@ def create_app():
                     switches[switch_name] = {
                         'state': state,
                         'status': 'ON' if state == 1 else 'OFF',
-                        'type': 'backboard'
+                        'type': 'BACboard'
                     }
                 except Exception as e:
                     switches[switch_name] = {'error': str(e)}
