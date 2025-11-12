@@ -12,8 +12,8 @@ A scalable Flask-based HTTP request system for controlling power to the CASM ana
 - 47 switches total: CH1-4 (full chassis power) + CH1A-K, CH2A-K, CH3A-K, CH4A-J (Per SNAP BACboards)
 - Sequent Microsystems 8-relay HAT boards
 - **Two deployment options:**
-  - **Option 1 (One Pi)**: 6 relay boards on single Pi
-  - **Option 2 (Four Pis)**: 8 relay boards total (2 per Pi, each Pi controls one chassis)
+  - **Option 1 (Single Pi)**: 6 relay boards on one Pi controlling all 4 chassis
+  - **Option 2 (Two Pis)**: 3 relay boards per Pi (Pi 1: CH1-2, Pi 2: CH3-4)
 
 ---
 
@@ -277,36 +277,26 @@ relays_per_board: 8
 
 ---
 
-### Option 2: Four Pis (8 Relay Boards Total)
+### Option 2: Two Pis (6 Relay Boards Total)
 
-**Hardware:** 4 Raspberry Pis, each with 2 relay boards (16 relays each)
-- Pi #1: Chassis 1 (2 boards)
-- Pi #2: Chassis 2 (2 boards)
-- Pi #3: Chassis 3 (2 boards)
-- Pi #4: Chassis 4 (2 boards)
+**Hardware:** 2 Raspberry Pis, each with 3 relay boards (24 relays each)
+- Pi #1: Chassis 1 & 2 (3 boards: CH1, CH1A-K, CH2, CH2A-K)
+- Pi #2: Chassis 3 & 4 (3 boards: CH3, CH3A-K, CH4, CH4A-J)
 
 **Main server config (`main_config.yaml`):**
 ```yaml
 raspberry_pis:
-  pi_chassis_1:
+  pi_1:
     ip_address: "192.168.1.100"
     port: 5001
-    chassis: [1]
+    chassis: [1, 2]
+    description: "Pi 1 - Chassis 1 & 2"
   
-  pi_chassis_2:
+  pi_2:
     ip_address: "192.168.1.101"
     port: 5001
-    chassis: [2]
-  
-  pi_chassis_3:
-    ip_address: "192.168.1.102"
-    port: 5001
-    chassis: [3]
-  
-  pi_chassis_4:
-    ip_address: "192.168.1.103"
-    port: 5001
-    chassis: [4]
+    chassis: [3, 4]
+    description: "Pi 2 - Chassis 3 & 4"
 
 status_check_interval: 30
 request_timeout: 5
@@ -316,35 +306,22 @@ request_timeout: 5
 
 Pi #1:
 ```yaml
-pi_id: "pi_chassis_1"
-chassis_controlled: [1]
-num_relay_boards: 2    # 2 boards for chassis 1
+pi_id: "pi_1"
+chassis_controlled: [1, 2]
+num_relay_boards: 3    # 3 boards for chassis 1 & 2
 relays_per_board: 8
 ```
 
 Pi #2:
 ```yaml
-pi_id: "pi_chassis_2"
-chassis_controlled: [2]
-num_relay_boards: 2    # 2 boards for chassis 2
+pi_id: "pi_2"
+chassis_controlled: [3, 4]
+num_relay_boards: 3    # 3 boards for chassis 3 & 4
 relays_per_board: 8
 ```
 
-Pi #3:
-```yaml
-pi_id: "pi_chassis_3"
-chassis_controlled: [3]
-num_relay_boards: 2    # 2 boards for chassis 3
-relays_per_board: 8
-```
-
-Pi #4:
-```yaml
-pi_id: "pi_chassis_4"
-chassis_controlled: [4]
-num_relay_boards: 2    # 2 boards for chassis 4
-relays_per_board: 8
-```
+**Pros:** Redundancy, load distribution across 2 Pis  
+**Cons:** More hardware to manage than single Pi option
 
 ---
 
