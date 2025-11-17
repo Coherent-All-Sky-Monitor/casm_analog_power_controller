@@ -47,7 +47,7 @@ sudo chmod +x /usr/local/bin/capc
 
 ---
 
-## SETUP: After Configuration of RPIs Including Static IPs, Disabling Bluetooth/WIFI, Hardware Watchdog, etc.
+## SETUP: After Configuration of RPIs Including Static IPs, Disabling Bluetooth/WIFI, Username, Hardware Watchdog, etc.
 
 ### Step 1: Edit `main_config.yaml`
 
@@ -80,12 +80,21 @@ git push origin main
 
 > **Note:** The Pis use username `casm` (not the default `pi`). Make sure both Pis have the same username for consistency.
 
-```bash
-# On each Pi (use 'casm' username)
-ssh casm@<pi-ip>
+> **Important:** Pis use **Ethernet only** (no WiFi/Bluetooth) to prevent Radio Frequency Interference (RFI) with the radio telescope. All file transfers use direct Ethernet connection via SCP.
 
-# Clone the repository (all Pis get identical code + config)
-git clone https://github.com/your-repo/casm_analog_power_controller.git
+```bash
+# Transfer repo to Pi via Ethernet (no WiFi - RFI protection!)
+# On your laptop, connect Ethernet cable and configure:
+#   - Laptop: 192.168.1.1
+#   - Pi: 192.168.1.2 (or 192.168.1.3 for Pi 2)
+
+# Copy entire repo to Pi via SCP
+scp -r /Users/lukechung/Desktop/casm_analog_power_controller casm@192.168.1.2:~/
+
+# SSH to Pi
+ssh casm@192.168.1.2
+
+# Navigate to repo
 cd casm_analog_power_controller
 
 # Install dependencies
@@ -93,7 +102,7 @@ pip3 install -r requirements.txt
 
 # Start Pi server - it auto-detects which config to use based on static IP
 python3 run_pi_server.py
-# 🔍 Detected this Pi's IP address: 192.168.1.100
+# 🔍 Detected this Pi's IP address: 192.168.1.2
 # ✅ Loaded configuration for pi_1 from main_config.yaml
 #    - Chassis: [1, 2]
 #    - Relay boards: 3
