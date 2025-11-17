@@ -17,6 +17,39 @@ A Flask-based HTTP request system for controlling power to the CASM analog chain
 
 ---
 
+## Quick Start with `capc` CLI
+
+The easiest way to control switches is with the `capc` command-line tool:
+
+```bash
+# Make it accessible system-wide (optional)
+sudo cp capc /usr/local/bin/
+sudo chmod +x /usr/local/bin/capc
+
+# Or use directly from repo
+./capc --help
+
+# Examples (4 control workflows):
+./capc -s CH1A --on              # 1. Main server + switch name
+./capc -h 1 -r 7 --on            # 2. Main server + HAT/relay number
+./capc -s CH1A --on -d           # 3. Pi direct + switch name
+./capc -h 1 -r 7 --on -d         # 4. Pi direct + HAT/relay number
+
+# Get info
+./capc --status                  # System status
+./capc --list                    # List all switches
+./capc -s CH1A                   # Get switch status
+```
+
+**Why use `capc` instead of curl?**
+- Simpler syntax (no JSON formatting)
+- Auto-detects which Pi controls which switch
+- Clear error messages
+- Color-coded output
+- See full documentation below in "capc CLI Tool" section
+
+---
+
 ## SETUP: Must Configure Static IPs on RPis and Proceed Accordingly
 
 ### Step 1: Edit `main_config.yaml`
@@ -237,16 +270,88 @@ Open browser:
 
 Click switches to toggle on/off.
 
-### Command Line Using Curl Commands
+### Using the `capc` CLI Tool
+
+The `capc` (CASM Analog Power Controller) command-line tool provides a user-friendly interface to control switches.
+
+**Installation:**
+```bash
+# Make it accessible system-wide
+sudo cp capc /usr/local/bin/
+sudo chmod +x /usr/local/bin/capc
+
+# Or use from repo
+./capc --help
+```
+
+**4 Control Workflows:**
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| **1** | `capc -s CH1A --on` | Switch name → Main Server |
+| **2** | `capc -h 1 -r 7 --on` | HAT/Relay → Main Server |
+| **3** | `capc -s CH1A --on -d` | Switch name → Pi Direct |
+| **4** | `capc -h 1 -r 7 --on -d` | HAT/Relay → Pi Direct |
+
+**Common Commands:**
+```bash
+# Control switches by name (RECOMMENDED)
+capc -s CH1 --on                # Turn chassis 1 ON (via main server)
+capc -s CH1A --off              # Turn BACboard CH1A OFF
+capc -s CH2 --on -d             # Turn chassis 2 ON (Pi direct)
+
+# Control by hardware location
+capc -h 1 -r 7 --on             # HAT 1, Relay 7 ON (via main server)
+capc -h 2 -r 3 --off -d         # HAT 2, Relay 3 OFF (Pi direct)
+
+# Get information
+capc --status                   # Show system status
+capc --list                     # List all switches
+capc --list -d                  # List switches from Pi
+capc -s CH1A                    # Get status of CH1A
+
+# Direct Pi access (specify IP)
+capc -s CH1A --on -d -p 192.168.1.2
+```
+
+**How curl Commands Map to capc:**
+
+```bash
+# curl → capc
+curl -X POST http://localhost:5000/api/switch/CH1A -d '{"state": 1}'
+capc -s CH1A --on
+
+curl -X POST http://localhost:5000/api/relay/1/7 -d '{"state": 1}'
+capc -h 1 -r 7 --on
+
+curl -X POST http://192.168.1.2:5001/api/switch/CH1A -d '{"state": 1}'
+capc -s CH1A --on -d
+
+curl -X POST http://192.168.1.2:5001/api/relay/1/7 -d '{"state": 1}'
+capc -h 1 -r 7 --on -d
+```
+
+**Why use `capc`?**
+- ✅ Simpler syntax (no JSON formatting)
+- ✅ Auto-detects which Pi controls which switch
+- ✅ Clear success/error messages
+- ✅ Less typing than curl
+- ✅ Built-in help: `capc --help`
+
+---
+
+### Command Line Using Curl Commands (Legacy)
+
+If you prefer curl or need to integrate with other tools, all functionality is available via REST API.
 
 #### 4 Control Methods
 
 | Method | Target | Control Type | Endpoint Example | 
 |--------|--------|--------------|------------------|
 | **1** | Main Server | Switch Name | `POST /api/switch/CH1` |
-| **2** | Main Server | Relay Number | `POST /api/relay/pi_1/0/1` |
+| **2** | Main Server | HAT/Relay | `POST /api/relay/1/7` |
 | **3** | Pi Direct | Switch Name | `POST http://pi-ip:5001/api/switch/CH1` |
-| **4** | Pi Direct | Relay Number | `POST http://pi-ip:5001/api/relay/0/1` |
+| **4** | Pi Direct | HAT/Relay | `POST http://pi-ip:5001/api/relay/1/7` |
 
 ---
 

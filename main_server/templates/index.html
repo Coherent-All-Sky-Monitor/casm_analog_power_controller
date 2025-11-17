@@ -12,24 +12,23 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
-            color: #333;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
             overflow: hidden;
         }
 
         header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -37,7 +36,7 @@
 
         header h1 {
             font-size: 2.5em;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         .subtitle {
@@ -49,123 +48,20 @@
             padding: 30px;
         }
 
-        .pi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+        .pi-status-bar {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
             margin-bottom: 30px;
-        }
-
-        .pi-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            border: 2px solid #e9ecef;
-            transition: all 0.3s ease;
-        }
-
-        .pi-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transform: translateY(-2px);
-        }
-
-        .pi-card.online {
-            border-color: #28a745;
-            background: #f0fff4;
-        }
-
-        .pi-card.offline {
-            border-color: #dc3545;
-            background: #fff5f5;
-        }
-
-        .pi-card.error {
-            border-color: #ffc107;
-            background: #fffbf0;
-        }
-
-        .pi-header {
             display: flex;
-            justify-content: space-between;
+            justify-content: space-around;
             align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .pi-name {
-            font-size: 1.4em;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .pi-status {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: bold;
-        }
-
-        .status-online {
-            background: #28a745;
-            color: white;
-        }
-
-        .status-offline {
-            background: #dc3545;
-            color: white;
-        }
-
-        .status-error {
-            background: #ffc107;
-            color: #333;
-        }
-
-        .pi-info {
-            color: #666;
-            line-height: 1.8;
-        }
-
-        .pi-info strong {
-            color: #333;
-        }
-
-        .pi-link {
-            display: inline-block;
-            margin-top: 10px;
-            padding: 8px 16px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: background 0.3s ease;
-        }
-
-        .pi-link:hover {
-            background: #5568d3;
-        }
-
-        .system-status {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .system-status h2 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            flex-wrap: wrap;
+            gap: 20px;
         }
 
         .status-item {
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #667eea;
+            text-align: center;
         }
 
         .status-label {
@@ -180,14 +76,133 @@
             color: #333;
         }
 
-        .error-msg {
-            color: #dc3545;
+        .pi-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .pi-indicator.online { background: #28a745; }
+        .pi-indicator.offline { background: #dc3545; }
+
+        .chassis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chassis-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            border: 3px solid #e9ecef;
+        }
+
+        .chassis-card.chassis-1 { border-color: #ff6b9d; }
+        .chassis-card.chassis-2 { border-color: #c471ed; }
+        .chassis-card.chassis-3 { border-color: #12cad6; }
+        .chassis-card.chassis-4 { border-color: #ffa502; }
+
+        .chassis-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .chassis-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .chassis-pi {
             font-size: 0.9em;
-            margin-top: 10px;
-            padding: 10px;
-            background: #fff5f5;
-            border-radius: 5px;
-            border-left: 3px solid #dc3545;
+            color: #666;
+        }
+
+        .switch-section {
+            margin-bottom: 20px;
+        }
+
+        .switch-section h3 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .switch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .switch-btn {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1em;
+        }
+
+        .switch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .switch-btn.on {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+
+        .switch-btn.off {
+            background: white;
+            color: #666;
+            border-color: #ddd;
+        }
+
+        .switch-btn.loading {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .master-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .master-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .master-btn.on {
+            background: #28a745;
+            color: white;
+        }
+
+        .master-btn.off {
+            background: #dc3545;
+            color: white;
+        }
+
+        .master-btn:hover {
+            transform: scale(1.05);
         }
 
         .last-update {
@@ -197,46 +212,42 @@
             font-size: 0.9em;
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
+        @media (max-width: 768px) {
+            .chassis-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .switch-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🚀 CASM Main Server</h1>
-            <p class="subtitle">Multi-Pi Coordination & Monitoring</p>
+            <h1>⚡ CASM Main Server Control</h1>
+            <p class="subtitle">Multi-Pi Switch Control & Monitoring</p>
         </header>
 
         <div class="content">
-            <div class="system-status">
-                <h2>📊 System Overview</h2>
-                <div class="status-grid">
-                    <div class="status-item">
-                        <div class="status-label">Total Pis</div>
-                        <div class="status-value" id="total-pis">-</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Online</div>
-                        <div class="status-value" id="online-pis" style="color: #28a745;">-</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Offline</div>
-                        <div class="status-value" id="offline-pis" style="color: #dc3545;">-</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">Total Chassis</div>
-                        <div class="status-value" id="total-chassis">-</div>
+            <div class="pi-status-bar" id="pi-status-bar">
+                <div class="status-item">
+                    <div class="status-label">Total Switches</div>
+                    <div class="status-value" id="total-switches">-</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Raspberry Pis</div>
+                    <div class="status-value" id="pi-status">
+                        <span class="pi-indicator online"></span>0 / 0
                     </div>
                 </div>
             </div>
 
-            <h2 style="margin-bottom: 20px;">🖥️ Raspberry Pis</h2>
-            <div id="pi-grid" class="pi-grid">
-                <div class="loading">Loading Pi status...</div>
+            <div class="chassis-grid" id="chassis-grid">
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    Loading chassis data...
+                </div>
             </div>
 
             <div class="last-update" id="last-update">
@@ -246,78 +257,177 @@
     </div>
 
     <script>
-        async function fetchPiStatus() {
+        // State tracking
+        let switchStates = {};
+        let piStatus = {};
+
+        // Fetch initial data
+        async function fetchStatus() {
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
-                renderPiStatus(data);
-                updateSystemOverview(data);
+                piStatus = data.raspberry_pis;
+                updatePiStatus(data);
+                await fetchAllSwitches();
                 updateLastUpdateTime();
             } catch (error) {
-                console.error('Error fetching Pi status:', error);
-                document.getElementById('pi-grid').innerHTML = 
-                    '<div class="loading" style="color: #dc3545;">Failed to fetch Pi status. Check server connection.</div>';
+                console.error('Error fetching status:', error);
             }
         }
 
-        function renderPiStatus(data) {
-            const grid = document.getElementById('pi-grid');
-            
-            if (!data.raspberry_pis || Object.keys(data.raspberry_pis).length === 0) {
-                grid.innerHTML = '<div class="loading">No Pis configured</div>';
-                return;
+        async function fetchAllSwitches() {
+            try {
+                const response = await fetch('/api/switch/list');
+                const data = await response.json();
+                if (data.switches) {
+                    switchStates = data.switches;
+                    renderChassis();
+                }
+            } catch (error) {
+                console.error('Error fetching switches:', error);
             }
+        }
 
+        function updatePiStatus(data) {
+            const pis = Object.values(data.raspberry_pis || {});
+            const online = pis.filter(pi => pi.status === 'online').length;
+            const total = pis.length;
+            
+            document.getElementById('pi-status').innerHTML = `
+                <span class="pi-indicator ${online === total ? 'online' : 'offline'}"></span>${online} / ${total}
+            `;
+            
+            document.getElementById('total-switches').textContent = data.total_switches || 0;
+        }
+
+        function renderChassis() {
+            const grid = document.getElementById('chassis-grid');
             grid.innerHTML = '';
 
-            for (const [piId, piData] of Object.entries(data.raspberry_pis)) {
+            // Group switches by chassis
+            const chassisGroups = {1: [], 2: [], 3: [], 4: []};
+            
+            for (const [name, state] of Object.entries(switchStates)) {
+                const chassisNum = parseInt(name.match(/CH(\d)/)?.[1]);
+                if (chassisNum) {
+                    chassisGroups[chassisNum].push({name, state});
+                }
+            }
+
+            // Render each chassis
+            for (const [chassisNum, switches] of Object.entries(chassisGroups)) {
+                if (switches.length === 0) continue;
+
+                const chassisPower = switches.find(s => s.name === `CH${chassisNum}`);
+                const snapSwitches = switches.filter(s => s.name !== `CH${chassisNum}`);
+                
+                // Find which Pi controls this chassis
+                let piName = 'Unknown';
+                for (const [pi_id, pi_data] of Object.entries(piStatus)) {
+                    if (pi_data.chassis && pi_data.chassis.includes(parseInt(chassisNum))) {
+                        piName = pi_id;
+                        break;
+                    }
+                }
+
                 const card = document.createElement('div');
-                card.className = `pi-card ${piData.status}`;
-
-                const statusClass = piData.status === 'online' ? 'status-online' : 
-                                   piData.status === 'offline' ? 'status-offline' : 'status-error';
-                const statusText = piData.status.charAt(0).toUpperCase() + piData.status.slice(1);
-
+                card.className = `chassis-card chassis-${chassisNum}`;
                 card.innerHTML = `
-                    <div class="pi-header">
-                        <div class="pi-name">${piId}</div>
-                        <div class="pi-status ${statusClass}">${statusText}</div>
+                    <div class="chassis-header">
+                        <div class="chassis-title">🔌 Chassis ${chassisNum}</div>
+                        <div class="chassis-pi">Controlled by: ${piName}</div>
                     </div>
-                    <div class="pi-info">
-                        <strong>IP:</strong> ${piData.ip_address}:${piData.port}<br>
-                        <strong>Chassis:</strong> ${piData.chassis.join(', ')}<br>
-                        ${piData.description ? `<strong>Description:</strong> ${piData.description}<br>` : ''}
-                        ${piData.response_time ? `<strong>Response Time:</strong> ${piData.response_time.toFixed(0)}ms<br>` : ''}
-                        ${piData.total_switches ? `<strong>Total Switches:</strong> ${piData.total_switches}<br>` : ''}
+                    
+                    ${chassisPower ? `
+                    <div class="switch-section">
+                        <h3>⚡ Chassis Power</h3>
+                        <div class="switch-grid">
+                            ${renderSwitch(chassisPower.name, chassisPower.state)}
+                        </div>
                     </div>
-                    ${piData.error ? `<div class="error-msg">${piData.error}</div>` : ''}
-                    ${piData.status === 'online' ? `<a href="http://${piData.ip_address}:${piData.port}" class="pi-link" target="_blank">Open Pi Interface →</a>` : ''}
-                `;
+                    ` : ''}
+                    
+                    <div class="switch-section">
+                        <h3>📡 BACboard Controls (${snapSwitches.length} SNAPs)</h3>
+                        <div class="switch-grid">
+                            ${snapSwitches.map(s => renderSwitch(s.name, s.state)).join('')}
+                        </div>
+                    </div>
 
+                    <div class="master-controls">
+                        <button class="master-btn on" onclick="setAllChassisSwitches(${chassisNum}, 1)">
+                            Turn ON All (Chassis ${chassisNum})
+                        </button>
+                        <button class="master-btn off" onclick="setAllChassisSwitches(${chassisNum}, 0)">
+                            Turn OFF All (Chassis ${chassisNum})
+                        </button>
+                    </div>
+                `;
+                
                 grid.appendChild(card);
             }
         }
 
-        function updateSystemOverview(data) {
-            const pis = data.raspberry_pis || {};
-            const piList = Object.values(pis);
-            
-            const total = piList.length;
-            const online = piList.filter(pi => pi.status === 'online').length;
-            const offline = piList.filter(pi => pi.status === 'offline').length;
-            
-            // Count unique chassis
-            const allChassis = new Set();
-            piList.forEach(pi => {
-                if (pi.chassis) {
-                    pi.chassis.forEach(ch => allChassis.add(ch));
-                }
-            });
+        function renderSwitch(name, state) {
+            const stateClass = state === 1 ? 'on' : 'off';
+            const stateText = state === 1 ? 'ON' : 'OFF';
+            return `
+                <button class="switch-btn ${stateClass}" 
+                        data-switch="${name}" 
+                        onclick="toggleSwitch('${name}')">
+                    <div>${name}</div>
+                    <div style="font-size: 0.8em; margin-top: 5px;">${stateText}</div>
+                </button>
+            `;
+        }
 
-            document.getElementById('total-pis').textContent = total;
-            document.getElementById('online-pis').textContent = online;
-            document.getElementById('offline-pis').textContent = offline;
-            document.getElementById('total-chassis').textContent = allChassis.size;
+        async function toggleSwitch(name) {
+            const currentState = switchStates[name] || 0;
+            const newState = currentState === 1 ? 0 : 1;
+            
+            // Update UI immediately (optimistic)
+            const btn = document.querySelector(`[data-switch="${name}"]`);
+            btn.classList.add('loading');
+            
+            try {
+                const response = await fetch(`/api/switch/${name}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({state: newState})
+                });
+                
+                if (response.ok) {
+                    switchStates[name] = newState;
+                    renderChassis();
+                } else {
+                    throw new Error('Failed to toggle switch');
+                }
+            } catch (error) {
+                console.error('Error toggling switch:', error);
+                alert(`Failed to toggle ${name}`);
+                renderChassis(); // Revert UI
+            }
+        }
+
+        async function setAllChassisSwitches(chassisNum, state) {
+            const switches = Object.keys(switchStates).filter(name => 
+                name.startsWith(`CH${chassisNum}`)
+            );
+            
+            for (const name of switches) {
+                try {
+                    await fetch(`/api/switch/${name}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({state})
+                    });
+                    switchStates[name] = state;
+                } catch (error) {
+                    console.error(`Failed to set ${name}:`, error);
+                }
+            }
+            
+            renderChassis();
         }
 
         function updateLastUpdateTime() {
@@ -327,11 +437,10 @@
         }
 
         // Auto-refresh every 5 seconds
-        setInterval(fetchPiStatus, 5000);
+        setInterval(fetchStatus, 5000);
 
         // Initial load
-        fetchPiStatus();
+        fetchStatus();
     </script>
 </body>
 </html>
-

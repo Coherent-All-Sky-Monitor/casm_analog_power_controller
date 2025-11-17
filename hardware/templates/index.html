@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>⚡ CASM Analog Power Controller</h1>
-            <p class="subtitle">Prototype: CH1 Chassis + 11 BACboards (CH1A-K)</p>
+            <p class="subtitle" id="pi-subtitle">Pi Server Control Interface</p>
             <div class="header-controls">
                 <button class="reset-btn" onclick="turnOffAllRelays()">Turn OFF All Relays</button>
                 <button class="on-btn" onclick="turnOnAllRelays()">Turn ON All Relays</button>
@@ -62,10 +62,11 @@ curl -X POST http://localhost:5001/api/relay/0/1 \
     </div>
 
     <script>
-        // Fetch and render switch states
+        // Fetch and render switch states for ALL chassis controlled by this Pi
         async function fetchRelayStates() {
             try {
-                const response = await fetch('/api/switch/chassis/1');
+                // Fetch all switches this Pi controls
+                const response = await fetch('/api/switch/list');
                 const data = await response.json();
                 renderSwitches(data);
             } catch (error) {
@@ -74,7 +75,7 @@ curl -X POST http://localhost:5001/api/relay/0/1 \
             }
         }
 
-        // Render all switches organized by type
+        // Render all switches organized by chassis
         function renderSwitches(data) {
             const grid = document.getElementById('relay-grid');
             grid.innerHTML = '';
@@ -84,58 +85,95 @@ curl -X POST http://localhost:5001/api/relay/0/1 \
                 return;
             }
 
-            // Create chassis section
-            const chassisDiv = document.createElement('div');
-            chassisDiv.className = 'stack chassis-section';
-            
-            const chassisHeader = document.createElement('h3');
-            chassisHeader.textContent = '🔌 Chassis Control';
-            chassisDiv.appendChild(chassisHeader);
-
-            const chassisContainer = document.createElement('div');
-            chassisContainer.className = 'relay-container';
-
-            // Add CH1 chassis switch
-            const switchName = 'CH1';
-            if (data.switches[switchName]) {
-                const switchData = data.switches[switchName];
-                const switchBtn = document.createElement('button');
-                switchBtn.className = `relay chassis ${switchData.state === 1 ? 'on' : 'off'}`;
-                switchBtn.textContent = switchName;
-                switchBtn.onclick = () => toggleSwitch(switchName, switchData.state);
-                chassisContainer.appendChild(switchBtn);
+            // Group switches by chassis
+            const chassisGroups = {};
+            for (const [name, switchData] of Object.entries(data.switches)) {
+                const chassisMatch = name.match(/CH(\d+)/);
+                if (chassisMatch) {
+                    const chassisNum = parseInt(chassisMatch[1]);
+                    if (!chassisGroups[chassisNum]) {
+                        chassisGroups[chassisNum] = {
+                            chassis: null,
+                            bacboards: []
+                        };
+                    }
+                    
+                    // Check if this is the chassis switch (no letter after number)
+                    if (name === `CH${chassisNum}`) {
+                        chassisGroups[chassisNum].chassis = { name, ...switchData };
+                    } else {
+                        chassisGroups[chassisNum].bacboards.push({ name, ...switchData });
+                    }
+                }
             }
 
-            chassisDiv.appendChild(chassisContainer);
-            grid.appendChild(chassisDiv);
+            // Update subtitle with chassis info
+            const chassisNums = Object.keys(chassisGroups).sort();
+            document.getElementById('pi-subtitle').textContent = 
+                `Pi Server - Controlling Chassis ${chassisNums.join(' & ')}`;
 
-            // Create BACboards section
-            const bacboardDiv = document.createElement('div');
-            bacboardDiv.className = 'stack bacboard-section';
+            // Render each chassis
+            for (const [chassisNum, group] of Object.entries(chassisGroups)) {
+                // Create chassis section
+                const chassisSection = document.createElement('div');
+                chassisSection.className = 'stack chassis-section';
+                chassisSection.style.marginBottom = '30px';
+                
+                const sectionTitle = document.createElement('h2');
+                sectionTitle.textContent = `🔌 Chassis ${chassisNum}`;
+                sectionTitle.style.marginBottom = '15px';
+                chassisSection.appendChild(sectionTitle);
 
-            const bacboardHeader = document.createElement('h3');
-            bacboardHeader.textContent = '📋 BACboard Controls (CH1A - CH1K)';
-            bacboardDiv.appendChild(bacboardHeader);
+                // Chassis power switch
+                if (group.chassis) {
+                    const chassisDiv = document.createElement('div');
+                    chassisDiv.className = 'stack';
+                    
+                    const chassisHeader = document.createElement('h3');
+                    chassisHeader.textContent = 'Chassis Power';
+                    chassisDiv.appendChild(chassisHeader);
 
-            const bacboardContainer = document.createElement('div');
-            bacboardContainer.className = 'relay-container';
+                    const chassisContainer = document.createElement('div');
+                    chassisContainer.className = 'relay-container';
 
-            // Add all BACboard switches
-            const bacboards = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
-            bacboards.forEach(letter => {
-                const switchName = `CH1${letter}`;
-                if (data.switches[switchName]) {
-                    const switchData = data.switches[switchName];
                     const switchBtn = document.createElement('button');
-                    switchBtn.className = `relay bacboard ${switchData.state === 1 ? 'on' : 'off'}`;
-                    switchBtn.textContent = switchName;
-                    switchBtn.onclick = () => toggleSwitch(switchName, switchData.state);
-                    bacboardContainer.appendChild(switchBtn);
-                }
-            });
+                    switchBtn.className = `relay chassis ${group.chassis.state === 1 ? 'on' : 'off'}`;
+                    switchBtn.textContent = group.chassis.name;
+                    switchBtn.onclick = () => toggleSwitch(group.chassis.name, group.chassis.state);
+                    chassisContainer.appendChild(switchBtn);
 
-            bacboardDiv.appendChild(bacboardContainer);
-            grid.appendChild(bacboardDiv);
+                    chassisDiv.appendChild(chassisContainer);
+                    chassisSection.appendChild(chassisDiv);
+                }
+
+                // BACboards section
+                if (group.bacboards.length > 0) {
+                    const bacboardDiv = document.createElement('div');
+                    bacboardDiv.className = 'stack bacboard-section';
+
+                    const bacboardHeader = document.createElement('h3');
+                    bacboardHeader.textContent = `📋 BACboard Controls (${group.bacboards.length} SNAPs)`;
+                    bacboardDiv.appendChild(bacboardHeader);
+
+                    const bacboardContainer = document.createElement('div');
+                    bacboardContainer.className = 'relay-container';
+
+                    // Sort and display BACboards
+                    group.bacboards.sort((a, b) => a.name.localeCompare(b.name));
+                    group.bacboards.forEach(snap => {
+                        const switchBtn = document.createElement('button');
+                        switchBtn.className = `relay bacboard ${snap.state === 1 ? 'on' : 'off'}`;
+                        switchBtn.textContent = snap.name;
+                        switchBtn.onclick = () => toggleSwitch(snap.name, snap.state);
+                        bacboardContainer.appendChild(switchBtn);
+                    });
+
+                    bacboardDiv.appendChild(bacboardContainer);
+                    chassisSection.appendChild(bacboardDiv);
+                }
+
+                grid.appendChild(chassisSection);
+            }
         }
 
         // Toggle switch state using the new API
