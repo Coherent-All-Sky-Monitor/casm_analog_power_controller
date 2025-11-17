@@ -601,16 +601,11 @@ def create_app():
                 stack, relay_num = position
                 try:
                     state = relay.get(stack, relay_num)
-                    switches[switch_name] = {
-                        'state': state,
-                        'status': 'ON' if state == 1 else 'OFF',
-                        'stack': stack,
-                        'relay': relay_num
-                    }
+                    switches[switch_name] = state  # Just return the state (0 or 1)
                 except Exception as e:
-                    switches[switch_name] = {'error': str(e)}
+                    switches[switch_name] = 0  # Default to OFF on error
         
-        return jsonify(switches)
+        return jsonify({"switches": switches})
     
     @app.route('/api/switch/chassis/<int:chassis_num>', methods=['GET'])
     def get_chassis_switches(chassis_num):
