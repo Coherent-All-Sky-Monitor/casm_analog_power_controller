@@ -87,7 +87,7 @@ curl -X POST http://localhost:5001/api/relay/0/1 \
 
             // Group switches by chassis
             const chassisGroups = {};
-            for (const [name, switchData] of Object.entries(data.switches)) {
+            for (const [name, state] of Object.entries(data.switches)) {
                 const chassisMatch = name.match(/CH(\d+)/);
                 if (chassisMatch) {
                     const chassisNum = parseInt(chassisMatch[1]);
@@ -100,9 +100,9 @@ curl -X POST http://localhost:5001/api/relay/0/1 \
                     
                     // Check if this is the chassis switch (no letter after number)
                     if (name === `CH${chassisNum}`) {
-                        chassisGroups[chassisNum].chassis = { name, ...switchData };
+                        chassisGroups[chassisNum].chassis = { name, state };
                     } else {
-                        chassisGroups[chassisNum].bacboards.push({ name, ...switchData });
+                        chassisGroups[chassisNum].bacboards.push({ name, state });
                     }
                 }
             }
