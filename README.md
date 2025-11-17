@@ -31,9 +31,9 @@ sudo chmod +x /usr/local/bin/capc
 
 # Examples (4 control workflows):
 ./capc -s CH1A --on              # 1. Main server + switch name
-./capc -h 1 -r 7 --on            # 2. Main server + HAT/relay number
+./capc -t 1 -r 7 --on            # 2. Main server + HAT/relay number
 ./capc -s CH1A --on -d           # 3. Pi direct + switch name
-./capc -h 1 -r 7 --on -d         # 4. Pi direct + HAT/relay number
+./capc -t 1 -r 7 --on -d         # 4. Pi direct + HAT/relay number
 
 # Get info
 ./capc --status                  # System status
@@ -289,9 +289,9 @@ sudo chmod +x /usr/local/bin/capc
 | Mode | Command | Description |
 |------|---------|-------------|
 | **1** | `capc -s CH1A --on` | Switch name → Main Server |
-| **2** | `capc -h 1 -r 7 --on` | HAT/Relay → Main Server |
+| **2** | `capc -t 1 -r 7 --on` | HAT/Relay → Main Server |
 | **3** | `capc -s CH1A --on -d` | Switch name → Pi Direct |
-| **4** | `capc -h 1 -r 7 --on -d` | HAT/Relay → Pi Direct |
+| **4** | `capc -t 1 -r 7 --on -d` | HAT/Relay → Pi Direct |
 
 **Common Commands:**
 ```bash
@@ -301,8 +301,8 @@ capc -s CH1A --off              # Turn BACboard CH1A OFF
 capc -s CH2 --on -d             # Turn chassis 2 ON (Pi direct)
 
 # Control by hardware location
-capc -h 1 -r 7 --on             # HAT 1, Relay 7 ON (via main server)
-capc -h 2 -r 3 --off -d         # HAT 2, Relay 3 OFF (Pi direct)
+capc -t 1 -r 7 --on             # HAT 1, Relay 7 ON (via main server)
+capc -t 2 -r 3 --off -d         # HAT 2, Relay 3 OFF (Pi direct)
 
 # Get information
 capc --status                   # Show system status
@@ -322,13 +322,13 @@ curl -X POST http://localhost:5000/api/switch/CH1A -d '{"state": 1}'
 capc -s CH1A --on
 
 curl -X POST http://localhost:5000/api/relay/1/7 -d '{"state": 1}'
-capc -h 1 -r 7 --on
+capc -t 1 -r 7 --on
 
 curl -X POST http://192.168.1.2:5001/api/switch/CH1A -d '{"state": 1}'
 capc -s CH1A --on -d
 
 curl -X POST http://192.168.1.2:5001/api/relay/1/7 -d '{"state": 1}'
-capc -h 1 -r 7 --on -d
+capc -t 1 -r 7 --on -d
 ```
 
 **Why use `capc`?**

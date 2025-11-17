@@ -5,9 +5,9 @@ CAPC - CASM Analog Power Controller CLI
 A command-line interface for controlling CASM power switches.
 Supports 4 control modes:
   1. Main Server + Switch Name: capc -s CH1A
-  2. Main Server + HAT/Relay:  capc -h 1 -r 7
+  2. Main Server + HAT/Relay:  capc -t 1 -r 7
   3. Pi Direct + Switch Name:  capc -s CH1A -d
-  4. Pi Direct + HAT/Relay:    capc -h 1 -r 7 -d
+  4. Pi Direct + HAT/Relay:    capc -t 1 -r 7 -d
 
 The curl commands this replaces:
   1. curl -X POST http://localhost:5000/api/switch/CH1A -d '{"state": 1}'
@@ -278,12 +278,12 @@ Examples:
   capc -s CH1A               # Get status of CH1A
   
   # Control by HAT/relay number (via main server)
-  capc -h 1 -r 7 --on        # Turn HAT 1, Relay 7 ON
-  capc -h 2 -r 3 --off       # Turn HAT 2, Relay 3 OFF
+  capc -t 1 -r 7 --on        # Turn HAT 1, Relay 7 ON
+  capc -t 2 -r 3 --off       # Turn HAT 2, Relay 3 OFF
   
   # Direct Pi control (add -d flag)
   capc -s CH1A --on -d       # Turn CH1A ON via Pi directly
-  capc -h 1 -r 7 --on -d     # Turn HAT 1 Relay 7 ON via Pi directly
+  capc -t 1 -r 7 --on -d     # Turn HAT 1 Relay 7 ON via Pi directly
   capc -s CH1A -d -p 192.168.1.2  # Specify Pi IP
   
   # List all switches
@@ -297,20 +297,20 @@ The curl equivalents:
   capc -s CH1A --on
     → curl -X POST http://localhost:5000/api/switch/CH1A -d '{"state": 1}'
   
-  capc -h 1 -r 7 --on
+  capc -t 1 -r 7 --on
     → curl -X POST http://localhost:5000/api/relay/1/7 -d '{"state": 1}'
   
   capc -s CH1A --on -d
     → curl -X POST http://192.168.1.2:5001/api/switch/CH1A -d '{"state": 1}'
   
-  capc -h 1 -r 7 --on -d -p 192.168.1.2
+  capc -t 1 -r 7 --on -d -p 192.168.1.2
     → curl -X POST http://192.168.1.2:5001/api/relay/1/7 -d '{"state": 1}'
 """
     )
     
     # Control modes
     parser.add_argument("-s", "--switch", help="Switch name (e.g., CH1A, CH2)")
-    parser.add_argument("-h", "--hat", type=int, help="HAT number (1-based)")
+    parser.add_argument("-t", "--hat", type=int, help="HAT number (1-based)")
     parser.add_argument("-r", "--relay", type=int, help="Relay number (1-based, 1-8)")
     
     # State control
