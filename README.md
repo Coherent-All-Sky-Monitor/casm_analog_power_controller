@@ -30,8 +30,8 @@ sudo chmod +x /usr/local/bin/capc
 ./capc --help
 
 # 4 Main Example Workflows:
-./capc -n CH1A --on              # 1. Main server + switch name
-./capc -s 1 -r 7 --on            # 2. Main server + stack/relay number
+./capc -n CH1A --on              # 1. Main server + switch name (-n tag for name)
+./capc -s 1 -r 7 --on            # 2. Main server + HAT(stack)/relay number (-s tag for stack) (-r tag for relay)
 ./capc -n CH1A --on -d           # 3. Pi direct + switch name
 ./capc -s 1 -r 7 --on -d         # 4. Pi direct + stack/relay number
 
@@ -41,16 +41,13 @@ sudo chmod +x /usr/local/bin/capc
 ./capc -n CH1A                   # Get switch status
 ```
 
-**Why use `capc` instead of curl?**
-- Simpler syntax (no JSON formatting)
+**Main reasons to use `capc` instead of curl commands?**
+- Simpler syntax
 - Auto-detects which Pi controls which switch
-- Clear error messages
-- Color-coded output
-- See full documentation below in "capc CLI Tool" section
 
 ---
 
-## SETUP: Must Configure Static IPs on RPis and Proceed Accordingly
+## SETUP: After Configuration of RPIs Including Static IPs, Disabling Bluetooth/WIFI, Hardware Watchdog, etc.
 
 ### Step 1: Edit `main_config.yaml`
 
@@ -66,7 +63,7 @@ nano main_config.yaml
 
 **What to edit:**
 - **Pi IP addresses** (`ip_address`) - must match static IPs set on Pis
-- **Hardware specs** (`num_relay_boards`, `relays_per_board`) per Pi
+- **Hardware specs** (`num_relay_boards`, `relays_per_board`) per Pi (default is 3 boards per pi with 8 relays per board)
 - **Switch mappings** (`switch_mapping` section) for each Pi
   - Customize `{hat: X, relay: Y}` based on actual wiring
 
@@ -81,9 +78,11 @@ git push origin main
 
 **Same steps for ALL Pis - they auto-configure based on Static IP!**
 
+> **Note:** The Pis use username `casm` (not the default `pi`). Make sure both Pis have the same username for consistency.
+
 ```bash
-# On each Pi
-ssh pi@<pi-ip>
+# On each Pi (use 'casm' username)
+ssh casm@<pi-ip>
 
 # Clone the repository (all Pis get identical code + config)
 git clone https://github.com/your-repo/casm_analog_power_controller.git
@@ -518,7 +517,7 @@ switch_mapping:
 4. Test directly: `curl http://192.168.1.100:5001/api/status`
 
 **Fix:**
-- Restart Pi server: `ssh pi@<ip>` then `python3 run_pi_server.py`
+- Restart Pi server: `ssh casm@<ip>` then `python3 run_pi_server.py`
 - Check network connection
 - Verify firewall allows port 5001
 
@@ -649,10 +648,38 @@ IP_TO_CONFIG = {
 ## Important Notes
 
 - **Use static IPs** for Pis
+- **Username consistency**: Both Pis should use username `casm` (not default `pi`) for easier management
 - **Check status** before experiments
 - **Configs must match** between main server and Pis
 - **Stack numbers are local** on each Pi (always start at 0)
 - **Each chassis** can only be controlled by ONE Pi
+
+### Setting Up Username on Second Pi
+
+If your second Pi still uses the default `pi` username, change it to `casm`:
+
+```bash
+# SSH to the second Pi
+ssh pi@192.168.1.101  # or whatever the current username is
+
+# Create new user 'casm'
+sudo adduser casm
+# Follow prompts to set password
+
+# Give sudo privileges
+sudo usermod -aG sudo casm
+
+# Copy SSH keys (optional, for passwordless login)
+sudo cp -r /home/pi/.ssh /home/casm/
+sudo chown -R casm:casm /home/casm/.ssh
+
+# Test new user works
+exit
+ssh casm@192.168.1.101
+
+# Once confirmed working, optionally delete old 'pi' user
+sudo deluser --remove-home pi
+```
 
 ---
 
