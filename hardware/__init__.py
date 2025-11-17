@@ -304,34 +304,34 @@ def create_app():
         # Extract parameters
         switch_name = data.get('switch_name')
         hat = data.get('hat')  # 0-based HAT number
-        relay = data.get('relay')  # 1-based relay number (1-8)
+        relay_num = data.get('relay')  # 1-based relay number (1-8)
         state = data.get('state')
         
         # Validate
-        if hat is None or relay is None or state is None:
+        if hat is None or relay_num is None or state is None:
             return jsonify({'error': 'Missing required fields: hat, relay, state'}), 400
         
         if hat < 0 or hat >= NUM_STACKS:
             return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_STACKS-1}'}), 400
         
-        if relay < 1 or relay > 8:
+        if relay_num < 1 or relay_num > 8:
             return jsonify({'error': 'Invalid relay number. Must be 1-8'}), 400
         
         if state not in [0, 1]:
             return jsonify({'error': 'State must be 0 or 1'}), 400
         
         try:
-            # Set relay state on hardware (relay is already 1-based, no conversion needed!)
-            relay.set(hat, relay, state)
+            # Set relay state on hardware (relay_num is already 1-based, no conversion needed!)
+            relay.set(hat, relay_num, state)
             
             return jsonify({
                 'success': True,
                 'switch_name': switch_name,
                 'hat': hat,
-                'relay': relay,
+                'relay': relay_num,
                 'state': state,
                 'status': 'ON' if state == 1 else 'OFF',
-                'message': f'{switch_name} (HAT {hat}, Relay {relay}) turned {"ON" if state == 1 else "OFF"}'
+                'message': f'{switch_name} (HAT {hat}, Relay {relay_num}) turned {"ON" if state == 1 else "OFF"}'
             })
         except Exception as e:
             return jsonify({'error': f'Failed to set relay state: {str(e)}'}), 500
