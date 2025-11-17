@@ -1,0 +1,30 @@
+services:
+  main_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: casm_main_server
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount config file as read-only
+      - ./main_config.yaml:/app/main_config.yaml:ro
+      # Mount database for persistence
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - casm_network
+
+networks:
+  casm_network:
+    driver: bridge
+

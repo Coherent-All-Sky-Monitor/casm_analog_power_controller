@@ -231,3 +231,10 @@ env/
 *.swp
 *.swo
 *~
+
+# Docker data volume (database)
+data/
+*.db
+
+# Local config files (should not be in repo)
+local_config.yaml

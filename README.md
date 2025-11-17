@@ -1,91 +1,143 @@
 # CASM Analog Power Controller
 
-A scalable Flask-based HTTP request system for controlling power to the CASM analog chain through Sequent Microsystems 8-relay boards on Raspberry Pis.
+A Flask-based HTTP request system for controlling power to the CASM analog chain through Sequent Microsystems 8-relay boards on Raspberry Pis.
 
 ## System Overview
 
 **Two Stages:**
-- **Main Server/Head Node** - Routes requests to appropriate Pi (port 5000)
+- **Main Server** - Routes requests to appropriate Pi (port 5000)
 - **Raspberry Pis** - Control physical relay boards (port 5001 each)
 
 **Hardware:**
-- 47 switches total: CH1-4 (full chassis power) + CH1A-K, CH2A-K, CH3A-K, CH4A-J (Per SNAP BACboards)
+- 47 switches total: CH1-4 (power over full chassis) + CH1A-K, CH2A-K, CH3A-K, CH4A-J (Per SNAP BACboards)
 - Sequent Microsystems 8-relay HAT boards
-- **Two deployment options:**
-  - **Option 1 (Single Pi)**: 6 relay boards on one Pi controlling all 4 chassis
-  - **Option 2 (Two Pis)**: 3 relay boards per Pi (Pi 1: CH1-2, Pi 2: CH3-4)
+- **Deployment:** 2 Raspberry Pis, each with 3 relay boards
+  - Pi 1: Controls Chassis 1 & 2 (3 boards)
+  - Pi 2: Controls Chassis 3 & 4 (3 boards)
 
 ---
 
-## SETUP
+## SETUP: Must Configure Static IPs on RPis and Proceed Accordingly
 
-### Step 1: Configure Each Raspberry Pi
+### Step 1: Edit `main_config.yaml`
+
+**Main Config Sets Up Full Configuration Across Main Server and Pis:**
+
+```bash
+# On your laptop
+cd casm_analog_power_controller
+
+# Edit main_config.yaml
+nano main_config.yaml
+```
+
+**What to edit:**
+- **Pi IP addresses** (`ip_address`) - must match static IPs set on Pis
+- **Hardware specs** (`num_relay_boards`, `relays_per_board`) per Pi
+- **Switch mappings** (`switch_mapping` section) for each Pi
+  - Customize `{hat: X, relay: Y}` based on actual wiring
+
+```bash
+# Commit and push to GitHub
+git add main_config.yaml
+git commit -m "Configure system for telescope deployment"
+git push origin main
+```
+
+### Step 2: Deploy to Raspberry Pis
+
+**Same steps for ALL Pis - they auto-configure based on Static IP!**
 
 ```bash
 # On each Pi
 ssh pi@<pi-ip>
 
+# Clone the repository (all Pis get identical code + config)
+git clone https://github.com/your-repo/casm_analog_power_controller.git
+cd casm_analog_power_controller
+
 # Install dependencies
 pip3 install -r requirements.txt
 
-# Create config (tells Pi which chassis it controls)
-cp local_config.example.all_chassis.yaml local_config.yaml # copies example YAML file
-nano local_config.yaml # edit the YAML file
-```
-
-**Edit `local_config.yaml`:** # this is the YAML file on the individual Pi
-```yaml
-pi_id: "pi_1"
-chassis_controlled: [1, 2, 3, 4]  # Which chassis this Pi controls
-num_relay_boards: 6               # Number of HATs connected to this Pi
-relays_per_board: 8
-```
-
-**Start Pi server:**
-```bash
+# Start Pi server - it auto-detects which config to use based on static IP
 python3 run_pi_server.py
+# 🔍 Detected this Pi's IP address: 192.168.1.100
+# ✅ Loaded configuration for pi_1 from main_config.yaml
+#    - Chassis: [1, 2]
+#    - Relay boards: 3
+#    - Switch mappings: 24 switches
 ```
 
-### Step 2: Configure Main Server
+Pi automatically:
+- Detects its IP address
+- Finds its section in `main_config.yaml`
+- Loads hardware specs and switch mappings
+- Starts server on port 5001
+
+### Step 3: Start Main Server (Docker)
+
+**Prerequisites:**
+- Docker installed ([Install Docker](https://docs.docker.com/get-docker/))
+- Docker Compose installed (usually comes with Docker Desktop)
 
 ```bash
-# On main server
+# On main server (laptop or OVRO server)
 cd casm_analog_power_controller
 
-# Create config (tells main server where all Pis are)
-cp main_config.example.single_pi.yaml main_config.yaml
-nano main_config.yaml
+# Create data directory for database persistence
+mkdir -p data
+
+# Start main server with Docker Compose
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f
+
+# Check status
+curl http://localhost:5000/api/status
 ```
 
-**Edit `main_config.yaml` (on main server):**
-```yaml
-raspberry_pis:
-  pi_1:
-    ip_address: "192.168.1.100"    # Pi's IP address
-    port: 5001
-    chassis: [1, 2]                # Must match Pi's local_config.yaml
-  pi_2:
-    ip_address: "192.168.1.101"
-    port: 5001
-    chassis: [3, 4]
-
-status_check_interval: 30 # Amount of seconds in between requests for the status of the Pis
-request_timeout: 5
-```
-
-**Start main server:**
+**Docker Commands:**
 ```bash
-python3 run_main_server.py
+# Stop server
+docker-compose down
+
+# Restart server
+docker-compose restart
+
+# Update after code changes
+git pull
+docker-compose down
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f main_server
 ```
 
-### Step 3: Test
+### Step 4: Test
 
 ```bash
 # Check system status
 curl http://main-server:5000/api/status
 
-# Control a switch
+# Testing switch control:
+# METHOD 1: Control by switch name via main server (RECOMMENDED)
 curl -X POST http://main-server:5000/api/switch/CH1 \
+  -H "Content-Type: application/json" \
+  -d '{"state": 1}'
+
+# METHOD 2: Control by relay number via main server
+curl -X POST http://main-server:5000/api/relay/pi_1/0/1 \
+  -H "Content-Type: application/json" \
+  -d '{"state": 1}'
+
+# METHOD 3: Control by switch name via Pi directly
+curl -X POST http://192.168.1.100:5001/api/switch/CH1 \
+  -H "Content-Type: application/json" \
+  -d '{"state": 1}'
+
+# METHOD 4: Control by relay number via Pi directly
+curl -X POST http://192.168.1.100:5001/api/relay/0/1 \
   -H "Content-Type: application/json" \
   -d '{"state": 1}'
 
@@ -95,61 +147,84 @@ curl -X POST http://main-server:5000/api/switch/CH1 \
 
 ---
 
-## Configuration Details
+## Configuration File
 
-### Pi Configuration (`local_config.yaml`)
-Each Pi needs to know which chassis it controls.
+**ALL configuration is done in `main_config.yaml`** - one file for the whole system.
 
-**Examples:**
+- Main server reads it to know where Pis are located (IPs/Ports)
+- Each Pi reads it and auto-detects its own section based on IP address
 
-**Option 1 - Single Pi (6 boards total):**
+### `main_config.yaml`
+
+**Edit based on hardware design and set static IPs:**
+
 ```yaml
-pi_id: "main_pi"
-chassis_controlled: [1, 2, 3, 4]  # Controls all chassis
-num_relay_boards: 6               # 6 boards on this one Pi
+raspberry_pis:
+  pi_1:
+    ip_address: "192.168.1.100"
+    port: 5001
+    chassis: [1, 2]
+    description: "Pi 1 - Chassis 1 & 2"
+    num_relay_boards: 3
+    relays_per_board: 8
+    
+    # All switch mappings for Chassis 1 & 2 (customize based on wiring)
+    switch_mapping:
+      # Chassis 1: 1 Full Chassis + 11 SNAPs
+      CH1: {hat: 0, relay: 1}   # Relay 1 on HAT 0
+      CH1A: {hat: 0, relay: 2}  # Relay 2 on HAT 0
+      CH1B: {hat: 0, relay: 3}  # Relay 3 on HAT 0
+      # ... CH1C through CH1K (relays 4-8 on HAT 0, then 1-4 on HAT 1)
+      
+      # Chassis 2: 1 Full Chassis + 11 SNAPs
+      CH2: {hat: 1, relay: 5}   # Relay 5 on HAT 1
+      CH2A: {hat: 1, relay: 6}  # Relay 6 on HAT 1
+      # ... CH2B through CH2K (relays 7-8 on HAT 1, then 1-8 on HAT 2)
+  
+  pi_2:
+    ip_address: "192.168.1.101"
+    port: 5001
+    chassis: [3, 4]
+    description: "Pi 2 - Chassis 3 & 4"
+    num_relay_boards: 3
+    relays_per_board: 8
+    
+    # All switch mappings for Chassis 3 & 4
+    switch_mapping:
+      # Chassis 3: 1 Full Chassis + 11 SNAPs
+      CH3: {hat: 0, relay: 1}   # Relay 1 on HAT 0
+      CH3A: {hat: 0, relay: 2}  # Relay 2 on HAT 0
+      # ... CH3B through CH3K (relays 3-8 on HAT 0, then 1-4 on HAT 1)
+      
+      # Chassis 4: 1 Full Chassis + 10 SNAPs (A-J, no K)
+      CH4: {hat: 1, relay: 5}   # Relay 5 on HAT 1
+      CH4A: {hat: 1, relay: 6}  # Relay 6 on HAT 1
+      # ... CH4B through CH4J (relays 7-8 on HAT 1, then 1-7 on HAT 2)
+
+status_check_interval: 30
+request_timeout: 5
 ```
 
-**Option 2 - Four Pis (2 boards each):**
+### How Pis Auto-Configure
 
-Pi #1:
-```yaml
-pi_id: "pi_chassis_1"
-chassis_controlled: [1]
-num_relay_boards: 2    # 2 boards for chassis 1
-```
+**Each Pi automatically finds its configuration:**
 
-Pi #2:
-```yaml
-pi_id: "pi_chassis_2"
-chassis_controlled: [2]
-num_relay_boards: 2    # 2 boards for chassis 2
-```
+1. Pi boots up and detects its own static IP address (e.g., `192.168.1.100`)
+2. Pi loads `main_config.yaml` from the repo
+3. Pi searches for the entry with matching `ip_address`
+4. Pi extracts its configuration:
+   - `pi_id` (e.g., `pi_1`)
+   - `num_relay_boards`, `relays_per_board`
+   - `switch_mapping` (all switch-to-relay mappings)
+5. Pi is fully configured
 
-Pi #3:
-```yaml
-pi_id: "pi_chassis_3"
-chassis_controlled: [3]
-num_relay_boards: 2    # 2 boards for chassis 3
-```
-
-Pi #4:
-```yaml
-pi_id: "pi_chassis_4"
-chassis_controlled: [4]
-num_relay_boards: 2    # 2 boards for chassis 4
-```
+**Minimal Configuration on Pis** Set static IP and `git pull`.
 
 **Important:** 
-- Stack numbers are LOCAL (always start at 0 on each Pi)
-- `num_relay_boards` should match physical hardware connected to that Pi
-
-### Main Server Configuration (`main_config.yaml`)
-Main server needs to know where all Pis are.
-
-**Important:** 
-- Use static IPs for Pis
-- Chassis assignment in `main_config.yaml` must match each Pi's `local_config.yaml`
-- Each chassis can only be assigned to ONE Pi
+- ✅ **All Configuration Happens Through Main** - `main_config.yaml`
+- ✅ **HAT numbers** are 0-based (0, 1, 2 for 3 HATs)
+- ✅ **Relay numbers** are 1-based (1-8)
+- ✅ **Switch mapping is NOT sequential** - must match physical wiring
 ---
 
 ## Usage
@@ -164,21 +239,33 @@ Click switches to toggle on/off.
 
 ### Command Line Using Curl Commands
 
-**Control switches:**
-```bash
-# Turn on
-curl -X POST http://main-server:5000/api/switch/CH1 \
-  -H "Content-Type: application/json" \
-  -d '{"state": 1}' # state 1 is on
+#### 4 Control Methods
 
-# Turn off
-curl -X POST http://main-server:5000/api/switch/CH2A \
-  -H "Content-Type: application/json" \
-  -d '{"state": 0}' # state 0 is off
+| Method | Target | Control Type | Endpoint Example | 
+|--------|--------|--------------|------------------|
+| **1** | Main Server | Switch Name | `POST /api/switch/CH1` |
+| **2** | Main Server | Relay Number | `POST /api/relay/pi_1/0/1` |
+| **3** | Pi Direct | Switch Name | `POST http://pi-ip:5001/api/switch/CH1` |
+| **4** | Pi Direct | Relay Number | `POST http://pi-ip:5001/api/relay/0/1` |
 
-# Get status
-curl http://main-server:5000/api/switch/CH1
-```
+---
+
+**METHOD 1: Switch Name → Main Server (RECOMMENDED)**
+- Uses logical names (CH1, CH1A, etc.)
+- Main server handles routing and mapping
+- Best for normal operations
+
+**METHOD 2: Relay Number → Main Server**
+- Direct hardware control via main server
+- Specify Pi ID, HAT, and relay number
+
+**METHOD 3: Switch Name → Pi Directly**
+- Bypass main server entirely
+- Pi has switch mappings loaded from `main_config.yaml`
+
+**METHOD 4: Relay Number → Pi Directly**
+- Bypass main server entirely
+- Lowest-level hardware control
 
 **Monitor system:**
 ```bash
@@ -246,42 +333,13 @@ echo "Done!"
 
 ---
 
-## Deployment Options
+## Deployment Architecture
 
-### Option 1: Single Pi (6 Relay Boards)
+### Two-Pi Deployment (Production Setup)
 
-**Hardware:** 1 Raspberry Pi with 6 relay boards (48 relays total)
-
-**Main server config (`main_config.yaml`):**
-```yaml
-raspberry_pis:
-  main_pi:
-    ip_address: "192.168.1.100"    # Or "localhost" if main server runs on same Pi
-    port: 5001
-    chassis: [1, 2, 3, 4]          # This Pi controls all 4 chassis
-
-status_check_interval: 30
-request_timeout: 5
-```
-
-**Pi config (`local_config.yaml` on the Pi):**
-```yaml
-pi_id: "main_pi"
-chassis_controlled: [1, 2, 3, 4]   # All chassis on this Pi
-num_relay_boards: 6                # 6 boards physically connected
-relays_per_board: 8
-```
-
-**Pros:** Simple, fewer machines to manage  
-**Cons:** Single point of failure, all relays on one Pi
-
----
-
-### Option 2: Two Pis (6 Relay Boards Total)
-
-**Hardware:** 2 Raspberry Pis, each with 3 relay boards (24 relays each)
-- Pi #1: Chassis 1 & 2 (3 boards: CH1, CH1A-K, CH2, CH2A-K)
-- Pi #2: Chassis 3 & 4 (3 boards: CH3, CH3A-K, CH4, CH4A-J)
+**Hardware:** 2 Raspberry Pis, each with 3 relay boards (daughterboards)
+- Pi #1: Controls Chassis 1 & 2 (3 boards, 24 relays)
+- Pi #2: Controls Chassis 3 & 4 (3 boards, 24 relays)
 
 **Main server config (`main_config.yaml`):**
 ```yaml
@@ -302,26 +360,45 @@ status_check_interval: 30
 request_timeout: 5
 ```
 
-**Each Pi config (`local_config.yaml`):**
-
-Pi #1:
+**Pi #1 config (`local_config.yaml`):**
 ```yaml
 pi_id: "pi_1"
 chassis_controlled: [1, 2]
-num_relay_boards: 3    # 3 boards for chassis 1 & 2
+num_relay_boards: 3
 relays_per_board: 8
+
+# Example switch mapping (customize for your wiring!)
+switch_mapping:
+  CH1: {hat: 0, relay: 0}
+  CH1A: {hat: 0, relay: 1}
+  CH1B: {hat: 0, relay: 2}
+  # ... add all switches for chassis 1 & 2
 ```
 
-Pi #2:
+**Pi #2 config (`local_config.yaml`):**
 ```yaml
 pi_id: "pi_2"
 chassis_controlled: [3, 4]
-num_relay_boards: 3    # 3 boards for chassis 3 & 4
+num_relay_boards: 3
 relays_per_board: 8
+
+switch_mapping:
+  CH3: {hat: 0, relay: 0}
+  CH3A: {hat: 0, relay: 1}
+  CH3B: {hat: 0, relay: 2}
+  # ... add all switches for chassis 3 & 4
 ```
 
-**Pros:** Redundancy, load distribution across 2 Pis  
-**Cons:** More hardware to manage than single Pi option
+**Why Two Pis:**
+- ✅ **Redundancy** - Chassis 1-2 stay operational if Pi 2 fails
+- ✅ **Load distribution** - 24 relays per Pi instead of 48
+- ✅ **Easier wiring** - Shorter cable runs from Pi to daughterboards
+- ✅ **Modular** - Can test/debug one chassis pair at a time
+
+**Important Notes:**
+- Each Pi has **static IP** configured via boot script (no DHCP)
+- **No internet/WiFi** during operation (RFI protection for radio telescope)
+- Switch mappings are **non-sequential** - relay 0 and 7 might control chassis power!
 
 ---
 
@@ -361,18 +438,32 @@ relays_per_board: 8
 
 **Fix:**
 ```bash
-cp main_config.example.single_pi.yaml main_config.yaml
+cp main_config.example.yaml main_config.yaml
 nano main_config.yaml  # Edit IPs
 ```
 
 ### Pi server can't start
 
-**Error:** `No config file found`
+**Error:** `Configuration file not found`
 
 **Fix:**
 ```bash
-cp local_config.example.one_chassis.yaml local_config.yaml
-nano local_config.yaml  # Edit chassis
+# For Pi 1:
+cp local_config.example.pi1.yaml local_config.yaml
+# For Pi 2:
+cp local_config.example.pi2.yaml local_config.yaml
+
+nano local_config.yaml  # Edit chassis and switch mappings
+```
+
+**Error:** `'switch_mapping' section is missing or empty`
+
+**Fix:** Add switch mappings to `local_config.yaml`:
+```yaml
+switch_mapping:
+  CH1: {hat: 0, relay: 0}
+  CH1A: {hat: 0, relay: 1}
+  # ... add all switches
 ```
 
 **Error:** `Failed to initialize relay boards`
@@ -384,6 +475,60 @@ nano local_config.yaml  # Edit chassis
 
 ---
 
+## Auto-Configuration System
+
+The system automatically detects which config file to use based on the Pi's IP address.
+
+### How It Works:
+
+1. **Each Pi has a unique static IP** (configured via boot script)
+2. **All Pis have the same repo** with all config files
+3. **Pi auto-detects its IP** and loads the correct config file
+4. **No copying needed** - just edit the config files directly in the repo
+
+### Config Files in Repo:
+
+```
+casm_analog_power_controller/
+├── local_config.pi1.yaml  # Pi at 192.168.1.100 uses this
+├── local_config.pi2.yaml  # Pi at 192.168.1.101 uses this
+└── auto_configure_pi.py   # Helper to show which config to edit
+```
+
+### Usage:
+
+```bash
+# On any Pi (after cloning the repo)
+python3 auto_configure_pi.py
+
+# Output:
+# ✅ Detected IP address: 192.168.1.100
+# ✅ This Pi should use: local_config.pi1.yaml
+# 📝 To customize switch mappings, edit:
+#    nano local_config.pi1.yaml
+```
+
+### IP-to-Config Mapping:
+
+Both `hardware/__init__.py` and `auto_configure_pi.py` have the same mapping:
+
+```python
+IP_TO_CONFIG = {
+    "192.168.1.100": "local_config.pi1.yaml",  # Pi 1 → Chassis 1 & 2
+    "192.168.1.101": "local_config.pi2.yaml",  # Pi 2 → Chassis 3 & 4
+}
+```
+
+### Benefits:
+
+✅ **Same repo on all Pis** - No copying, just edit files in place  
+✅ **Auto-detection** - Pi automatically loads the right config  
+✅ **Version control** - All configs are in git  
+✅ **Easy SD card cloning** - Clone one SD card, works on all Pis  
+✅ **No duplicate files** - One config file per Pi, not per-Pi copies
+
+---
+
 ## Key Features
 
 ✅ **Scalable** - 1 to N Pis, add/remove by editing config  
@@ -392,6 +537,7 @@ nano local_config.yaml  # Edit chassis
 ✅ **Flexible** - Any chassis distribution  
 ✅ **Web + CLI** - Browser UI or curl commands  
 ✅ **Pi Agnostic** - Same code on all Pis  
+✅ **Auto-Configuration** - Pis detect their role based on IP
 
 ---
 
@@ -405,21 +551,81 @@ nano local_config.yaml  # Edit chassis
 
 ---
 
+## Docker Deployment
+
+### Main Server (Dockerized)
+
+**The main server runs in Docker for:**
+- ✅ Consistent environment across different OS
+- ✅ Easy deployment and updates
+- ✅ Automatic restart on crash
+- ✅ Isolated from system dependencies
+
+**Files:**
+- `Dockerfile` - Main server container image
+- `docker-compose.yml` - Orchestration config
+- `.dockerignore` - Files to exclude from container
+
+**Architecture:**
+```
+Host Machine (laptop/OVRO server)
+    ↓
+Docker Container (casm_main_server)
+    ├── Python 3.11
+    ├── Flask + dependencies
+    ├── main_server/ code
+    └── main_config.yaml (mounted from host)
+    ↓
+Pis via Ethernet (192.168.1.100, 192.168.1.101)
+```
+
+**Data Persistence:**
+- `./data/status_history.db` - Status check logs (mounted volume)
+- `./main_config.yaml` - Configuration (mounted read-only)
+
+**Deployment:**
+```bash
+# First time
+docker-compose up -d
+
+# Updates
+git pull
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+```
+
+### Raspberry Pis (Native - No Docker)
+
+**Pis run native (non-containerized) because:**
+- ❌ Docker adds complexity for hardware access
+- ✅ Direct I2C access to relay HATs
+- ✅ Lower resource overhead
+- ✅ Easier debugging
+
+**Deployment:**
+- Systemd service for auto-start
+- Direct hardware access via I2C
+- See Step 2 in SETUP for Pi deployment
+
+---
+
 ## Files
 
 ```
 casm_analog_power_controller/
-├── hardware/                 # Pi server code
-├── main_server/             # Main coordinator code
-├── simulation/              # Simulator (no hardware needed)
-├── run_pi_server.py         # Start Pi server
-├── run_main_server.py       # Start main server
-├── run_simulation.py        # Start simulator
-├── main_config.yaml         # Main server config
-├── local_config.yaml        # Pi config (one per Pi)
-├── main_config.example.*.yaml    # Main server config examples
-├── local_config.example.*.yaml   # Pi config examples
-└── requirements.txt         # Dependencies
+├── Dockerfile             # Main server container image
+├── docker-compose.yml     # Docker orchestration
+├── .dockerignore          # Docker build exclusions
+├── hardware/              # Pi server code (runs natively on Pis)
+├── main_server/           # Main coordinator code (runs in Docker)
+├── simulation/            # Simulator (no hardware needed)
+├── run_pi_server.py       # Start Pi server (on Pis)
+├── run_main_server.py     # Start main server (in Docker container)
+├── run_simulation.py      # Start simulator
+├── main_config.yaml       # Single config file for entire system
+└── requirements.txt       # Python dependencies
 ```
 
 ---

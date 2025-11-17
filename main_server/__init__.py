@@ -104,27 +104,29 @@ def log_status_check(pi_id, status, chassis_list=None, error_msg=None, response_
 
 
 class PiRouter:
-    """Routes switch requests to the appropriate Raspberry Pi"""
+    """Routes switch requests to the appropriate Raspberry Pi with relay mappings"""
     
     def __init__(self, pi_config):
         """
         Initialize the router with Pi configuration.
         
         Args:
-            pi_config: Dictionary of Pi configurations from config.yaml
+            pi_config: Dictionary of Pi configurations from main_config.yaml
         """
         self.pi_config = pi_config
-        self._build_switch_to_pi_mapping()
+        self._build_switch_mappings()
     
-    def _build_switch_to_pi_mapping(self):
-        """Build a mapping from switch names to Pi addresses"""
-        self.switch_to_pi = {}
-        self.chassis_to_pi = {}
+    def _build_switch_mappings(self):
+        """Build mappings from switch names to Pi addresses AND relay positions"""
+        self.switch_to_pi = {}  # switch_name -> base_url
+        self.switch_to_relay = {}  # switch_name -> {pi_url, hat, relay}
+        self.chassis_to_pi = {}  # chassis_num -> pi_info
         
         for pi_id, pi_data in self.pi_config.items():
             ip = pi_data.get('ip_address')
             port = pi_data.get('port', 5001)
             chassis_list = pi_data.get('chassis', [])
+            switch_mapping = pi_data.get('switch_mapping', {})
             
             base_url = f"http://{ip}:{port}"
             
@@ -136,22 +138,27 @@ class PiRouter:
                     'ip': ip,
                     'port': port
                 }
-                
-                # Map chassis switch (e.g., CH1)
-                chassis_name = f'CH{chassis_num}'
-                self.switch_to_pi[chassis_name] = base_url
-                
-                # Map BACboard switches (e.g., CH1A-K, CH4A-J)
-                if chassis_num == 4:
-                    # CH4 only has A-J
-                    letters = 'ABCDEFGHIJ'
-                else:
-                    # CH1-3 have A-K
-                    letters = 'ABCDEFGHIJK'
-                
-                for letter in letters:
-                    switch_name = f'{chassis_name}{letter}'
-                    self.switch_to_pi[switch_name] = base_url
+            
+            # Map each switch to its Pi URL and relay position
+            for switch_name, relay_pos in switch_mapping.items():
+                self.switch_to_pi[switch_name.upper()] = base_url
+                self.switch_to_relay[switch_name.upper()] = {
+                    'pi_url': base_url,
+                    'hat': relay_pos.get('hat'),
+                    'relay': relay_pos.get('relay')
+                }
+    
+    def get_relay_info(self, switch_name):
+        """
+        Get complete relay information for a switch (Pi URL, HAT, relay).
+        
+        Args:
+            switch_name: Logical switch name (e.g., 'CH1', 'CH1A')
+        
+        Returns:
+            dict: {'pi_url': str, 'hat': int, 'relay': int} or None
+        """
+        return self.switch_to_relay.get(switch_name.upper())
     
     def get_pi_for_switch(self, switch_name):
         """
@@ -367,9 +374,9 @@ def create_app():
     @app.route('/api/switch/<switch_name>', methods=['POST'])
     def set_switch_state(switch_name):
         """Set the state of a switch by its logical name"""
-        pi_url = router.get_pi_for_switch(switch_name)
+        relay_info = router.get_relay_info(switch_name)
         
-        if pi_url is None:
+        if relay_info is None:
             return jsonify({
                 'error': f'Invalid switch name: {switch_name}',
                 'valid_switches': router.get_all_switches()
@@ -379,14 +386,135 @@ def create_app():
         if data is None or 'state' not in data:
             return jsonify({'error': 'Missing state in request body'}), 400
         
+        # Send complete relay instruction to Pi (hat, relay, state)
+        pi_data = {
+            'switch_name': switch_name.upper(),
+            'hat': relay_info['hat'],
+            'relay': relay_info['relay'],
+            'state': data['state']
+        }
+        
         response, status_code = forward_to_pi(
-            pi_url,
-            f'/api/switch/{switch_name}',
+            relay_info['pi_url'],
+            f'/api/relay/control',  # New endpoint on Pi that accepts full instructions
             method='POST',
-            data=data
+            data=pi_data
         )
         
         return jsonify(response), status_code
+    
+    # ========== Direct Relay Control via Main Server ==========
+    
+    @app.route('/api/relay/<pi_id>/<int:hat>/<int:relay>', methods=['POST'])
+    def control_relay_by_number(pi_id, hat, relay):
+        """
+        Control a relay by Pi ID, HAT number, and relay number through main server.
+        This allows direct hardware control without knowing switch names.
+        
+        Args:
+            pi_id: Pi identifier (e.g., 'pi_1', 'pi_2')
+            hat: HAT number (0-based, e.g., 0, 1, 2)
+            relay: Relay number (1-based, e.g., 1-8) matching physical hardware labels
+        
+        Body:
+            {"state": 0 or 1}
+        
+        Example:
+            POST /api/relay/pi_1/0/1 with {"state": 1}
+            -> Controls Pi 1, HAT 0, Relay 1 (turns ON)
+        """
+        # Validate Pi ID
+        if pi_id not in RASPBERRY_PIS:
+            return jsonify({
+                'error': f'Invalid Pi ID: {pi_id}',
+                'valid_pis': list(RASPBERRY_PIS.keys())
+            }), 400
+        
+        # Get Pi info
+        pi_config = RASPBERRY_PIS[pi_id]
+        ip = pi_config.get('ip_address')
+        port = pi_config.get('port', 5001)
+        pi_url = f"http://{ip}:{port}"
+        
+        # Validate HAT and relay numbers
+        num_boards = pi_config.get('num_relay_boards', 3)
+        if hat < 0 or hat >= num_boards:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{num_boards-1}'}), 400
+        
+        if relay < 1 or relay > 8:
+            return jsonify({'error': 'Invalid relay number. Must be 1-8'}), 400
+        
+        # Get state from request
+        data = request.get_json()
+        if data is None or 'state' not in data:
+            return jsonify({'error': 'Missing state in request body'}), 400
+        
+        state = data['state']
+        if state not in [0, 1]:
+            return jsonify({'error': 'State must be 0 or 1'}), 400
+        
+        # Send direct relay control to Pi (relay is already 1-based, no conversion!)
+        pi_data = {
+            'switch_name': f'{pi_id}_HAT{hat}_R{relay}',  # Descriptive name
+            'hat': hat,
+            'relay': relay,
+            'state': state
+        }
+        
+        response, status_code = forward_to_pi(
+            pi_url,
+            f'/api/relay/control',
+            method='POST',
+            data=pi_data
+        )
+        
+        return jsonify(response), status_code
+    
+    @app.route('/api/relay/<pi_id>/<int:hat>/<int:relay>', methods=['GET'])
+    def get_relay_state_by_number(pi_id, hat, relay):
+        """
+        Get the state of a relay by Pi ID, HAT number, and relay number.
+        
+        Args:
+            pi_id: Pi identifier (e.g., 'pi_1', 'pi_2')
+            hat: HAT number (0-based)
+            relay: Relay number (1-based, 1-8) matching physical hardware labels
+        
+        Example:
+            GET /api/relay/pi_1/0/1
+            -> Gets state of Pi 1, HAT 0, Relay 1
+        """
+        # Validate Pi ID
+        if pi_id not in RASPBERRY_PIS:
+            return jsonify({
+                'error': f'Invalid Pi ID: {pi_id}',
+                'valid_pis': list(RASPBERRY_PIS.keys())
+            }), 400
+        
+        # Get Pi info
+        pi_config = RASPBERRY_PIS[pi_id]
+        ip = pi_config.get('ip_address')
+        port = pi_config.get('port', 5001)
+        pi_url = f"http://{ip}:{port}"
+        
+        # Validate HAT and relay numbers
+        num_boards = pi_config.get('num_relay_boards', 3)
+        if hat < 0 or hat >= num_boards:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{num_boards-1}'}), 400
+        
+        if relay < 1 or relay > 8:
+            return jsonify({'error': 'Invalid relay number. Must be 1-8'}), 400
+        
+        # Forward to Pi (relay is already 1-based, no conversion needed!)
+        response, status_code = forward_to_pi(
+            pi_url,
+            f'/api/relay/{hat}/{relay}',
+            method='GET'
+        )
+        
+        return jsonify(response), status_code
+    
+    # ========== Switch List and Chassis Endpoints ==========
     
     @app.route('/api/switch/list', methods=['GET'])
     def list_all_switches():

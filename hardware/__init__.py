@@ -7,183 +7,248 @@ from pathlib import Path
 # Configuration for RPi with HATs with 8 relays per board.
 
 # Load configuration from YAML file
+def get_ip_address():
+    """Get this Pi's IP address"""
+    import socket
+    import subprocess
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        try:
+            result = subprocess.run(['hostname', '-I'], 
+                                    capture_output=True, 
+                                    text=True, 
+                                    check=True)
+            ips = result.stdout.strip().split()
+            for ip in ips:
+                if not ip.startswith('127.') and ':' not in ip:
+                    return ip
+        except Exception:
+            pass
+    return None
+
 def load_config():
-    """Load configuration from local_config.yaml"""
-    config_path = Path(__file__).parent.parent / 'local_config.yaml'
+    """
+    Load configuration from main_config.yaml and auto-detect this Pi's section.
     
-    if not config_path.exists(): # Check if the congif file exists
+    This Pi identifies itself by IP address, finds its entry in main_config.yaml,
+    and extracts its specific configuration (hardware specs, switch mappings, etc.)
+    
+    Returns:
+        dict: This Pi's configuration section with keys:
+            - pi_id: str
+            - num_relay_boards: int
+            - relays_per_board: int
+            - switch_mapping: dict
+            - chassis: list (optional)
+            - ip_address: str
+            - port: int
+    """
+    repo_root = Path(__file__).parent.parent
+    main_config_path = repo_root / 'main_config.yaml'
+    
+    # Check if main_config.yaml exists
+    if not main_config_path.exists():
         raise FileNotFoundError(
-            f"\n❌ ERROR: Configuration file not found at {config_path}\n\n"
-            f"Please create local_config.yaml by copying an example:\n"
-            f"  cp local_config.example.all_chassis.yaml local_config.yaml\n"
-            f"  nano local_config.yaml\n\n"
+            f"\n❌ ERROR: main_config.yaml not found at {main_config_path}\n\n"
+            f"This Pi loads its configuration from main_config.yaml.\n"
+            f"Make sure you've cloned the repo with the config file.\n\n"
             f"See README.md for setup instructions."
         )
     
-    try: # Opens the config file and loads it
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-            print(f"✅ Loaded config from {config_path}")
-            return config
-    except Exception as e:  # If the config file isn't a valid YAML file
+    # Load main config
+    try:
+        with open(main_config_path, 'r') as f:
+            main_config = yaml.safe_load(f)
+    except Exception as e:
         raise Exception(
-            f"\n❌ ERROR: Failed to load config from {config_path}\n"
+            f"\n❌ ERROR: Failed to load main_config.yaml\n"
             f"Error: {e}\n\n"
             f"Check that the file is valid YAML format."
         )
+    
+    # Get this Pi's IP address
+    my_ip = get_ip_address()
+    if not my_ip:
+        raise RuntimeError(
+            "\n❌ ERROR: Could not detect this Pi's IP address\n\n"
+            "Make sure the Pi has a network connection.\n"
+            "You can manually check with: hostname -I"
+        )
+    
+    print(f"🔍 Detected this Pi's IP address: {my_ip}")
+    
+    # Find this Pi's configuration by matching IP address
+    raspberry_pis = main_config.get('raspberry_pis', {})
+    my_config = None
+    my_pi_id = None
+    
+    for pi_id, pi_config in raspberry_pis.items():
+        if pi_config.get('ip_address') == my_ip:
+            my_config = pi_config.copy()
+            my_pi_id = pi_id
+            break
+    
+    if not my_config:
+        # Show available IPs to help with debugging
+        available_ips = [cfg.get('ip_address') for cfg in raspberry_pis.values()]
+        raise RuntimeError(
+            f"\n❌ ERROR: This Pi's IP ({my_ip}) not found in main_config.yaml\n\n"
+            f"Available Pi IPs in config: {available_ips}\n\n"
+            f"Either:\n"
+            f"  1. Update main_config.yaml to include this Pi's IP\n"
+            f"  2. Set this Pi's static IP to match one in main_config.yaml\n\n"
+            f"See README.md for setup instructions."
+        )
+    
+    # Add pi_id to the config
+    my_config['pi_id'] = my_pi_id
+    
+    # Validate required fields
+    required_fields = ['num_relay_boards', 'relays_per_board', 'switch_mapping']
+    missing_fields = [field for field in required_fields if field not in my_config]
+    
+    if missing_fields:
+        raise ValueError(
+            f"\n❌ ERROR: Missing required fields in main_config.yaml for {my_pi_id}\n"
+            f"Missing: {missing_fields}\n\n"
+            f"Each Pi entry must have:\n"
+            f"  - num_relay_boards: 3\n"
+            f"  - relays_per_board: 8\n"
+            f"  - switch_mapping: {{...}}\n"
+        )
+    
+    print(f"✅ Loaded configuration for {my_pi_id} from main_config.yaml")
+    print(f"   - Chassis: {my_config.get('chassis', 'N/A')}")
+    print(f"   - Relay boards: {my_config['num_relay_boards']}")
+    print(f"   - Switch mappings: {len(my_config['switch_mapping'])} switches")
+    
+    return my_config
 
 # Load configuration from YAML file
 CONFIG = load_config()
 NUM_STACKS = CONFIG['num_relay_boards']
 RELAYS_PER_BOARD = CONFIG['relays_per_board']
-CHASSIS_CONTROLLED = CONFIG['chassis_controlled']
 PI_ID = CONFIG['pi_id']
+
+# Note: Switch mappings are now centralized in main_config.yaml
+# This Pi server just needs to know its hardware specs
 
 
 class SwitchMapper:
     """
-    Maps switch names representing real hardware(CH1, CH1A, etc.) to stack/relay number (stack, relay).
+    Maps switch names to relay HAT positions using YAML configuration.
     
-    Layout with 4 chassis and 43 planks:
-    - 4 chassis switches: CH1, CH2, CH3, CH4
-    - 43 SNAP-BACboards switches: CH1A-K (11), CH2A-K (11), CH3A-K (11), CH4A-J (10)
+    This allows flexible, non-sequential mapping where any switch can be
+    assigned to any relay position. 
     
-    Sequential mapping across boards (when controlling all chassis):
-    Stack 0: CH1, CH1A-G
-    Stack 1: CH1H-K, CH2, CH2A-C
-    Stack 2: CH2D-K, CH3
-    Stack 3: CH3A-G, CH4
-    Stack 4: CH3H-K, CH4A-C
-    Stack 5: CH4D-J, SPARE
+    The mapping is loaded from main_config.yaml under the 'switch_mapping' key.
+    Each entry is: switch_name: {hat: X, relay: Y}
     
-    NOTE: This class maps the chassis listed in the config file (so not necessarily all 4 chassis)
-    Each Pi's relay boards start at stack 0 (local numbering).
+    NOTE: 'hat' in YAML = 'stack' in code (I2C HAT index 0-based)
+          'relay' in YAML is 1-based (1-8) to match physical hardware labels
     """
     
-    def __init__(self, chassis_controlled=None):
+    def __init__(self, switch_mapping_config):
         """
-        Initialize the mapper with specific chassis to control.
+        Initialize the mapper from YAML configuration.
         
         Args:
-            chassis_controlled: List of chassis numbers (1-4) this Pi controls.
+            switch_mapping_config: Dict from YAML with format:
+                {'CH1': {'hat': 0, 'relay': 1}, 'CH1A': {'hat': 0, 'relay': 2}, ...}
+                Relay numbers are 1-based (1-8) matching physical hardware labels.
         """
         self._switch_to_relay = {}
         self._relay_to_switch = {}
-        self.chassis_controlled = chassis_controlled or [1, 2, 3, 4]
-        self._build_mapping()
+        self._build_mapping_from_yaml(switch_mapping_config)
     
-    def _build_mapping(self):
-        """Build the bidirectional mapping between switch names and relay positions
-        
-        This dynamically builds mappings ONLY for the chassis this Pi controls.
-        Stack numbers are always local (starting from 0) on each Pi.
+    def _build_mapping_from_yaml(self, switch_mapping_config):
         """
-        mapping = []  # Temporary list of tuples: (switch_name, stack, relay)
+        Build bidirectional mapping from YAML config.
         
-        # Build full mapping table first, then filter by controlled chassis
-        # Full mapping represents the logical arrangement across all possible chassis
-        full_mapping = self._build_full_mapping()
+        Relay numbers in YAML are 1-based (1-8) to match physical hardware labels.
+        No conversion needed - YAML values map directly to hardware.
         
-        # Now extract only the chassis this Pi controls and renumber stacks locally
-        mapping = self._extract_controlled_chassis(full_mapping)
+        NOTE: Switch mappings are now in main_config.yaml (centralized).
+        This method is kept for backwards compatibility with direct Pi access.
+        """
+        if not switch_mapping_config:
+            # No mappings is OK now - main server sends complete instructions
+            print("ℹ️  No switch mappings in local config (using centralized config)")
+            return
         
-        # Build bidirectional dictionaries
-        for switch_name, stack, relay in mapping:
-            self._switch_to_relay[switch_name] = (stack, relay)
-            self._relay_to_switch[(stack, relay)] = switch_name
-    
-    def _build_full_mapping(self):
-        """Build the complete mapping for all chassis"""
-        mapping = []
+        for switch_name, position in switch_mapping_config.items():
+            if not isinstance(position, dict) or 'relay' not in position:
+                raise ValueError(
+                    f"\n❌ ERROR: Invalid mapping for '{switch_name}' in main_config.yaml\n"
+                    f"Expected format: {switch_name}: {{hat: X, relay: Y}}\n"
+                    f"Got: {position}"
+                )
+            
+            # Accept either 'hat' or 'board' (backwards compatibility)
+            hat = position.get('hat', position.get('board'))
+            if hat is None:
+                raise ValueError(
+                    f"\n❌ ERROR: Missing 'hat' field for '{switch_name}' in main_config.yaml\n"
+                    f"Expected format: {switch_name}: {{hat: X, relay: Y}}\n"
+                    f"Got: {position}"
+                )
+            
+            relay = position['relay']  # 1-based relay in YAML (matches hardware!)
+            
+            # Validate relay number
+            if relay < 1 or relay > 8:
+                raise ValueError(
+                    f"\n❌ ERROR: Invalid relay number for '{switch_name}'\n"
+                    f"Relay must be 1-8 (got {relay})\n"
+                    f"Use 1-based numbering to match physical hardware labels."
+                )
+            
+            # Store with uppercase switch names for consistency
+            switch_name_upper = switch_name.upper()
+            
+            # Build bidirectional mapping
+            # Relay numbers are 1-based, matching physical hardware
+            self._switch_to_relay[switch_name_upper] = (hat, relay)
+            self._relay_to_switch[(hat, relay)] = switch_name_upper
         
-        # CH1 chassis + CH1A-K SNAP-BACboards (12 total, needs 1.5 boards)
-        mapping.append(('CH1', 0, 1, 1))  # (name, stack, relay, chassis_num)
-        for i, letter in enumerate('ABCDEFGHIJK'):
-            stack = 0 if i < 7 else 1
-            relay = (2 + i) if i < 7 else (1 + i - 7) # 2 + i because first relay is used for CH1
-            mapping.append((f'CH1{letter}', stack, relay, 1))
-        
-        # CH2 chassis + CH2A-K SNAP-BACboards (12 total, needs 1.5 boards)
-        mapping.append(('CH2', 1, 5, 2))
-        for i, letter in enumerate('ABCDEFGHIJK'):
-            if i < 3:
-                stack = 1
-                relay = 6 + i
-            else:
-                stack = 2
-                relay = 1 + i - 3
-            mapping.append((f'CH2{letter}', stack, relay, 2))
-        
-        # CH3 chassis + CH3A-K SNAP-BACboards (12 total, needs 1.5 boards)
-        mapping.append(('CH3', 3, 1, 3))
-        for i, letter in enumerate('ABCDEFGHIJK'):
-            stack = 3 if i < 7 else 4
-            relay = (2 + i) if i < 7 else (1 + i - 7)
-            mapping.append((f'CH3{letter}', stack, relay, 3))
-        
-        # CH4 chassis + CH4A-J SNAP-BACboards (11 total)
-        mapping.append(('CH4', 4, 5, 4))
-        for i, letter in enumerate('ABCDEFGHIJ'):
-            if i < 3:
-                stack = 4
-                relay = 6 + i
-            else:
-                stack = 5
-                relay = 1 + i - 3
-            mapping.append((f'CH4{letter}', stack, relay, 4))
-        
-        return mapping
-    
-    def _extract_controlled_chassis(self, full_mapping):
-        """Extract and renumber mappings for only the chassis this Pi controls"""
-        # Filter mappings to only include controlled chassis
-        filtered = [m for m in full_mapping if m[3] in self.chassis_controlled]
-        
-        if not filtered:
-            return []
-        
-        # Find the unique stack numbers used by controlled chassis
-        used_stacks = sorted(set(m[1] for m in filtered))
-        
-        # Create a mapping from global stack numbers to local stack numbers
-        stack_renumbering = {global_stack: local_idx 
-                            for local_idx, global_stack in enumerate(used_stacks)}
-        
-        # Renumber stacks to start from 0
-        result = []
-        for switch_name, global_stack, relay, chassis_num in filtered:
-            local_stack = stack_renumbering[global_stack]
-            result.append((switch_name, local_stack, relay))
-        
-        return result
+        print(f"✅ Loaded {len(self._switch_to_relay)} switch mappings from YAML config")
     
     def get_relay_position(self, switch_name):
         """
-        Convert switch name to (stack, relay) position.
+        Convert switch name to (hat, relay) position.
         
         Args:
             switch_name: Logical name like 'CH1', 'CH1A', etc.
         
         Returns:
-            tuple: (stack, relay) or None if not found
+            tuple: (hat, relay) or None if not found
+            Relay numbers are 1-based (1-8) matching physical hardware.
+            
+        Example:
+            get_relay_position('CH1') -> (0, 1)  # HAT 0, Relay 1
         """
         return self._switch_to_relay.get(switch_name.upper())
     
     def get_switch_name(self, stack, relay):
         """
-        Convert (stack, relay) position to switch name.
+        Convert (hat/stack, relay) position to switch name.
         
         Args:
-            stack: Stack number (0-5)
-            relay: Relay number (1-8)
+            stack: HAT/stack number (0-based)
+            relay: Relay number (1-based for hardware)
         
         Returns:
-            str: Switch name like 'CH1', 'CH1A', etc., or None if not mapped
+            str: Switch name like 'CH1', 'CH1A', or None if not mapped
         """
         return self._relay_to_switch.get((stack, relay))
     
     def get_all_switches(self):
-        """Get list of all valid switch names"""
+        """Get sorted list of all valid switch names"""
         return sorted(self._switch_to_relay.keys())
     
     def is_valid_switch(self, switch_name):
@@ -191,8 +256,9 @@ class SwitchMapper:
         return switch_name.upper() in self._switch_to_relay
 
 
-# Global switch mapper instance - uses configured chassis
-switch_mapper = SwitchMapper(chassis_controlled=CHASSIS_CONTROLLED)
+# Global switch mapper instance - loads mappings from main_config.yaml
+# Pi auto-detects its section based on IP address
+switch_mapper = SwitchMapper(switch_mapping_config=CONFIG.get('switch_mapping', {}))
 
 
 def create_app():
@@ -206,15 +272,69 @@ def create_app():
     @app.route('/api/status', methods=['GET'])
     def status_check():
         """Status check endpoint for main server to monitor this Pi"""
+        # Try to get switch count from mapper, but don't fail if no mappings
+        try:
+            switch_count = len(switch_mapper.get_all_switches())
+            switches = switch_mapper.get_all_switches()
+        except:
+            switch_count = 0
+            switches = []
+        
         return jsonify({
             'status': 'online',
             'pi_id': PI_ID,
-            'chassis_controlled': CHASSIS_CONTROLLED,
             'num_relay_boards': NUM_STACKS,
             'relays_per_board': RELAYS_PER_BOARD,
-            'total_switches': len(switch_mapper.get_all_switches()),
-            'switches': switch_mapper.get_all_switches()
+            'total_switches': switch_count,
+            'switches': switches
         })
+    
+    @app.route('/api/relay/control', methods=['POST'])
+    def control_relay_direct():
+        """
+        Control a relay directly with complete instructions from main server.
+        Main server sends: {switch_name, hat, relay, state}
+        Relay numbers are 1-based (1-8) matching physical hardware labels.
+        This endpoint bypasses switch name lookup entirely.
+        """
+        data = request.get_json()
+        if data is None:
+            return jsonify({'error': 'Missing JSON data'}), 400
+        
+        # Extract parameters
+        switch_name = data.get('switch_name')
+        hat = data.get('hat')  # 0-based HAT number
+        relay = data.get('relay')  # 1-based relay number (1-8)
+        state = data.get('state')
+        
+        # Validate
+        if hat is None or relay is None or state is None:
+            return jsonify({'error': 'Missing required fields: hat, relay, state'}), 400
+        
+        if hat < 0 or hat >= NUM_STACKS:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_STACKS-1}'}), 400
+        
+        if relay < 1 or relay > 8:
+            return jsonify({'error': 'Invalid relay number. Must be 1-8'}), 400
+        
+        if state not in [0, 1]:
+            return jsonify({'error': 'State must be 0 or 1'}), 400
+        
+        try:
+            # Set relay state on hardware (relay is already 1-based, no conversion needed!)
+            relay.set(hat, relay, state)
+            
+            return jsonify({
+                'success': True,
+                'switch_name': switch_name,
+                'hat': hat,
+                'relay': relay,
+                'state': state,
+                'status': 'ON' if state == 1 else 'OFF',
+                'message': f'{switch_name} (HAT {hat}, Relay {relay}) turned {"ON" if state == 1 else "OFF"}'
+            })
+        except Exception as e:
+            return jsonify({'error': f'Failed to set relay state: {str(e)}'}), 500
 
     @app.route('/api/relay/<int:stack>/<int:relay_num>', methods=['GET'])
     def get_relay_state(stack, relay_num):

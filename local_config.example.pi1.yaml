@@ -1,9 +1,0 @@
-# Local Configuration for Pi 1
-# This Pi controls Chassis 1 and 2
-# 3 relay boards total (CH1, CH1A-K, CH2, CH2A-K)
-
-pi_id: "pi_1"
-chassis_controlled: [1, 2]  # Chassis 1 and 2
-num_relay_boards: 3          # 3 relay boards
-relays_per_board: 8
-
