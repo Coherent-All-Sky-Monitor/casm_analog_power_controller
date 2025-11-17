@@ -4,10 +4,10 @@ CAPC - CASM Analog Power Controller CLI
 
 A command-line interface for controlling CASM power switches.
 Supports 4 control modes:
-  1. Main Server + Switch Name: capc -s CH1A
-  2. Main Server + HAT/Relay:  capc -t 1 -r 7
-  3. Pi Direct + Switch Name:  capc -s CH1A -d
-  4. Pi Direct + HAT/Relay:    capc -t 1 -r 7 -d
+  1. Main Server + Switch Name: capc -n CH1A
+  2. Main Server + Stack/Relay: capc -s 1 -r 7
+  3. Pi Direct + Switch Name:   capc -n CH1A -d
+  4. Pi Direct + Stack/Relay:   capc -s 1 -r 7 -d
 
 The curl commands this replaces:
   1. curl -X POST http://localhost:5000/api/switch/CH1A -d '{"state": 1}'
@@ -273,18 +273,18 @@ def main():
         epilog="""
 Examples:
   # Control by switch name (via main server)
-  capc -s CH1A --on          # Turn CH1A ON
-  capc -s CH2 --off          # Turn CH2 OFF
-  capc -s CH1A               # Get status of CH1A
+  capc -n CH1A --on          # Turn CH1A ON
+  capc -n CH2 --off          # Turn CH2 OFF
+  capc -n CH1A               # Get status of CH1A
   
-  # Control by HAT/relay number (via main server)
-  capc -t 1 -r 7 --on        # Turn HAT 1, Relay 7 ON
-  capc -t 2 -r 3 --off       # Turn HAT 2, Relay 3 OFF
+  # Control by stack/relay number (via main server)
+  capc -s 1 -r 7 --on        # Turn Stack 1, Relay 7 ON
+  capc -s 2 -r 3 --off       # Turn Stack 2, Relay 3 OFF
   
   # Direct Pi control (add -d flag)
-  capc -s CH1A --on -d       # Turn CH1A ON via Pi directly
-  capc -t 1 -r 7 --on -d     # Turn HAT 1 Relay 7 ON via Pi directly
-  capc -s CH1A -d -p 192.168.1.2  # Specify Pi IP
+  capc -n CH1A --on -d       # Turn CH1A ON via Pi directly
+  capc -s 1 -r 7 --on -d     # Turn Stack 1 Relay 7 ON via Pi directly
+  capc -n CH1A -d -p 192.168.1.2  # Specify Pi IP
   
   # List all switches
   capc --list                # List from main server
@@ -294,23 +294,23 @@ Examples:
   capc --status              # Show Pi status from main server
 
 The curl equivalents:
-  capc -s CH1A --on
+  capc -n CH1A --on
     → curl -X POST http://localhost:5000/api/switch/CH1A -d '{"state": 1}'
   
-  capc -t 1 -r 7 --on
+  capc -s 1 -r 7 --on
     → curl -X POST http://localhost:5000/api/relay/1/7 -d '{"state": 1}'
   
-  capc -s CH1A --on -d
+  capc -n CH1A --on -d
     → curl -X POST http://192.168.1.2:5001/api/switch/CH1A -d '{"state": 1}'
   
-  capc -t 1 -r 7 --on -d -p 192.168.1.2
+  capc -s 1 -r 7 --on -d -p 192.168.1.2
     → curl -X POST http://192.168.1.2:5001/api/relay/1/7 -d '{"state": 1}'
 """
     )
     
     # Control modes
-    parser.add_argument("-s", "--switch", help="Switch name (e.g., CH1A, CH2)")
-    parser.add_argument("-t", "--hat", type=int, help="HAT number (1-based)")
+    parser.add_argument("-n", "--name", help="Switch name (e.g., CH1A, CH2)")
+    parser.add_argument("-s", "--stack", type=int, help="Stack/HAT number (1-based)")
     parser.add_argument("-r", "--relay", type=int, help="Relay number (1-based, 1-8)")
     
     # State control
@@ -360,41 +360,41 @@ The curl equivalents:
         return
     
     # Validate control arguments
-    if args.switch and (args.hat or args.relay):
-        print("✗ Error: Cannot specify both --switch and --hat/--relay", file=sys.stderr)
+    if args.name and (args.stack or args.relay):
+        print("✗ Error: Cannot specify both --name and --stack/--relay", file=sys.stderr)
         sys.exit(1)
     
-    if (args.hat and not args.relay) or (args.relay and not args.hat):
-        print("✗ Error: Must specify both --hat and --relay together", file=sys.stderr)
+    if (args.stack and not args.relay) or (args.relay and not args.stack):
+        print("✗ Error: Must specify both --stack and --relay together", file=sys.stderr)
         sys.exit(1)
     
-    if not args.switch and not args.hat and not args.list and not args.status:
+    if not args.name and not args.stack and not args.list and not args.status:
         parser.print_help()
         sys.exit(1)
     
     # Control by switch name
-    if args.switch:
+    if args.name:
         if args.on:
-            success = control_by_switch_name(args.switch, 1, direct=args.direct, pi_ip=args.pi)
+            success = control_by_switch_name(args.name, 1, direct=args.direct, pi_ip=args.pi)
             sys.exit(0 if success else 1)
         elif args.off:
-            success = control_by_switch_name(args.switch, 0, direct=args.direct, pi_ip=args.pi)
+            success = control_by_switch_name(args.name, 0, direct=args.direct, pi_ip=args.pi)
             sys.exit(0 if success else 1)
         else:
             # Just get status
-            get_switch_status(args.switch, direct=args.direct, pi_ip=args.pi)
+            get_switch_status(args.name, direct=args.direct, pi_ip=args.pi)
             return
     
-    # Control by HAT/relay number
-    if args.hat and args.relay:
+    # Control by stack/relay number
+    if args.stack and args.relay:
         if args.on:
-            success = control_by_hat_relay(args.hat, args.relay, 1, direct=args.direct, pi_ip=args.pi)
+            success = control_by_hat_relay(args.stack, args.relay, 1, direct=args.direct, pi_ip=args.pi)
             sys.exit(0 if success else 1)
         elif args.off:
-            success = control_by_hat_relay(args.hat, args.relay, 0, direct=args.direct, pi_ip=args.pi)
+            success = control_by_hat_relay(args.stack, args.relay, 0, direct=args.direct, pi_ip=args.pi)
             sys.exit(0 if success else 1)
         else:
-            print("✗ Error: Must specify --on or --off for HAT/relay control", file=sys.stderr)
+            print("✗ Error: Must specify --on or --off for stack/relay control", file=sys.stderr)
             sys.exit(1)
 
 

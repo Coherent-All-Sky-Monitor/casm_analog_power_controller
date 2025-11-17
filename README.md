@@ -9,7 +9,7 @@ A Flask-based HTTP request system for controlling power to the CASM analog chain
 - **Raspberry Pis** - Control physical relay boards (port 5001 each)
 
 **Hardware:**
-- 47 switches total: CH1-4 (power over full chassis) + CH1A-K, CH2A-K, CH3A-K, CH4A-J (Per SNAP BACboards)
+- 47 switches total: CH1-4 (power over full chassis) + CH1A-K, CH2A-K, CH3A-K, CH4A-J (individual SNAPs)
 - Sequent Microsystems 8-relay HAT boards
 - **Deployment:** 2 Raspberry Pis, each with 3 relay boards
   - Pi 1: Controls Chassis 1 & 2 (3 boards)
@@ -17,28 +17,28 @@ A Flask-based HTTP request system for controlling power to the CASM analog chain
 
 ---
 
-## Quick Start with `capc` CLI
+## Quick Start with Command Line Tool: CASM Analog Power Controller (CAPC) CLI
 
 The easiest way to control switches is with the `capc` command-line tool:
 
 ```bash
-# Make it accessible system-wide (optional)
+# Make it accessible system-wide (optional) so you don't have to be in the project directory.
 sudo cp capc /usr/local/bin/
 sudo chmod +x /usr/local/bin/capc
 
-# Or use directly from repo
+# Or use directly from the CASM_ANALOG_POWER_CONTROLLER repo
 ./capc --help
 
-# Examples (4 control workflows):
-./capc -s CH1A --on              # 1. Main server + switch name
-./capc -t 1 -r 7 --on            # 2. Main server + HAT/relay number
-./capc -s CH1A --on -d           # 3. Pi direct + switch name
-./capc -t 1 -r 7 --on -d         # 4. Pi direct + HAT/relay number
+# 4 Main Example Workflows:
+./capc -n CH1A --on              # 1. Main server + switch name
+./capc -s 1 -r 7 --on            # 2. Main server + stack/relay number
+./capc -n CH1A --on -d           # 3. Pi direct + switch name
+./capc -s 1 -r 7 --on -d         # 4. Pi direct + stack/relay number
 
 # Get info
 ./capc --status                  # System status
 ./capc --list                    # List all switches
-./capc -s CH1A                   # Get switch status
+./capc -n CH1A                   # Get switch status
 ```
 
 **Why use `capc` instead of curl?**
@@ -288,30 +288,30 @@ sudo chmod +x /usr/local/bin/capc
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| **1** | `capc -s CH1A --on` | Switch name → Main Server |
-| **2** | `capc -t 1 -r 7 --on` | HAT/Relay → Main Server |
-| **3** | `capc -s CH1A --on -d` | Switch name → Pi Direct |
-| **4** | `capc -t 1 -r 7 --on -d` | HAT/Relay → Pi Direct |
+| **1** | `capc -n CH1A --on` | Switch name → Main Server |
+| **2** | `capc -s 1 -r 7 --on` | Stack/Relay → Main Server |
+| **3** | `capc -n CH1A --on -d` | Switch name → Pi Direct |
+| **4** | `capc -s 1 -r 7 --on -d` | Stack/Relay → Pi Direct |
 
 **Common Commands:**
 ```bash
 # Control switches by name (RECOMMENDED)
-capc -s CH1 --on                # Turn chassis 1 ON (via main server)
-capc -s CH1A --off              # Turn BACboard CH1A OFF
-capc -s CH2 --on -d             # Turn chassis 2 ON (Pi direct)
+capc -n CH1 --on                # Turn chassis 1 ON (via main server)
+capc -n CH1A --off              # Turn BACboard CH1A OFF
+capc -n CH2 --on -d             # Turn chassis 2 ON (Pi direct)
 
-# Control by hardware location
-capc -t 1 -r 7 --on             # HAT 1, Relay 7 ON (via main server)
-capc -t 2 -r 3 --off -d         # HAT 2, Relay 3 OFF (Pi direct)
+# Control by hardware location (stack/relay)
+capc -s 1 -r 7 --on             # Stack 1, Relay 7 ON (via main server)
+capc -s 2 -r 3 --off -d         # Stack 2, Relay 3 OFF (Pi direct)
 
 # Get information
 capc --status                   # Show system status
 capc --list                     # List all switches
 capc --list -d                  # List switches from Pi
-capc -s CH1A                    # Get status of CH1A
+capc -n CH1A                    # Get status of CH1A
 
 # Direct Pi access (specify IP)
-capc -s CH1A --on -d -p 192.168.1.2
+capc -n CH1A --on -d -p 192.168.1.2
 ```
 
 **How curl Commands Map to capc:**
@@ -319,16 +319,16 @@ capc -s CH1A --on -d -p 192.168.1.2
 ```bash
 # curl → capc
 curl -X POST http://localhost:5000/api/switch/CH1A -d '{"state": 1}'
-capc -s CH1A --on
+capc -n CH1A --on
 
 curl -X POST http://localhost:5000/api/relay/1/7 -d '{"state": 1}'
-capc -t 1 -r 7 --on
+capc -s 1 -r 7 --on
 
 curl -X POST http://192.168.1.2:5001/api/switch/CH1A -d '{"state": 1}'
-capc -s CH1A --on -d
+capc -n CH1A --on -d
 
 curl -X POST http://192.168.1.2:5001/api/relay/1/7 -d '{"state": 1}'
-capc -t 1 -r 7 --on -d
+capc -s 1 -r 7 --on -d
 ```
 
 **Why use `capc`?**
