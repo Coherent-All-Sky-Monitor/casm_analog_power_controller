@@ -17,7 +17,7 @@ if __name__ == '__main__':
     print("🌐 Access locally at: http://localhost:5001")
     print("🔌 Controlling 1 board × 8 relays = 8 total relays")
     print("⚡ CONNECTED TO REAL HARDWARE (8-relay boards)")
-    print("⚠️  Change NUM_STACKS to 6 when you have all boards")
+    print("📝 Deployment: 2 Pis × 3 HATs each (6 HATs total)")
     print("=" * 60)
     print("\nPress Ctrl+C to stop the server\n")
     
