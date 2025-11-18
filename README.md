@@ -82,13 +82,34 @@ git push origin main
 
 > **Important:** Pis have WiFi/Bluetooth hardware **disabled** to prevent Radio Frequency Interference (RFI) with the radio telescope. Internet is provided by sharing your laptop's WiFi through the Ethernet cable during setup.
 
+#### Static IP Configuration
+
+**Development (Your Laptop):**
+- Pi 1: `192.168.1.2` (hardcoded static IP)
+- Pi 2: `192.168.1.3` (hardcoded static IP)
+- Laptop DHCP: Configured to exclude `.2` and `.3` from pool
+
+**Production (OVRO):**
+- Pis: Hardcoded static IPs (subnet determined by OVRO network)
+- Coordinate with OVRO admins to:
+  1. Choose available IP range (e.g., `10.0.5.x`)
+  2. Get Pi MAC addresses: `ip link show eth0 | grep ether`
+  3. Request DHCP reservations for those IPs (prevents conflicts)
+  
+**Example for OVRO:**
+```
+Pi 1 MAC: dc:a6:32:ab:cd:ef → Reserve IP: 10.0.5.100
+Pi 2 MAC: aa:bb:cc:dd:ee:ff → Reserve IP: 10.0.5.101
+```
+This "belt and suspenders" approach (static IP + DHCP reservation) ensures maximum reliability.
+
 #### Initial Setup (ONE TIME per Pi)
 
 ```bash
 # 1. Connect Pi to laptop via Ethernet cable
-# 2. Enable internet sharing on laptop (System Settings → Sharing → Internet Sharing)
+# 2. Configure laptop DHCP (see Mac DHCP Setup below)
 # 3. SSH to Pi
-ssh casm@192.168.1.100
+ssh casm@192.168.1.2  # Pi 1 (or 192.168.1.3 for Pi 2)
 
 # 4. Clone repository
 git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
@@ -109,11 +130,49 @@ cd casm_analog_power_controller
 ./start_pi_server.sh
 ```
 
+#### Mac DHCP Setup (Development)
+
+Configure your Mac to provide DHCP and internet while respecting Pi static IPs:
+
+```bash
+# 1. Install dnsmasq
+brew install dnsmasq
+
+# 2. Configure dnsmasq
+sudo nano /usr/local/etc/dnsmasq.conf
+
+# Add this configuration:
+interface=bridge100  # Or your Ethernet interface
+dhcp-range=192.168.1.4,192.168.1.254,12h  # Excludes .2 and .3
+dhcp-option=3,192.168.1.1  # Gateway (your Mac)
+dhcp-option=6,8.8.8.8,8.8.4.4  # DNS servers
+
+# Optional: DHCP reservations (belt & suspenders)
+# Get MAC from Pi: ip link show eth0 | grep ether
+dhcp-host=<PI1_MAC>,192.168.1.2,pi1
+dhcp-host=<PI2_MAC>,192.168.1.3,pi2
+
+log-dhcp  # Enable logging
+
+# 3. Set Mac's Ethernet IP
+# System Settings → Network → Ethernet → Details
+# Configure IPv4: Manually
+# IP: 192.168.1.1, Subnet: 255.255.255.0
+
+# 4. Enable IP forwarding and NAT
+sudo sysctl -w net.inet.ip.forwarding=1
+echo "nat on en0 from 192.168.1.0/24 to any -> (en0)" | sudo pfctl -f -
+sudo pfctl -e
+
+# 5. Start dnsmasq
+sudo brew services start dnsmasq
+```
+
 #### Future Updates (Easy!)
 
 ```bash
 # SSH to Pi
-ssh casm@192.168.1.100
+ssh casm@192.168.1.2
 cd casm_analog_power_controller
 
 # Pull latest changes
@@ -123,14 +182,14 @@ git pull
 ./start_pi_server.sh
 ```
 
-#### Alternative: SCP Method (if Git or Internet Sharing Not Working)
+#### Alternative: SCP Method (if Git or Internet Not Working)
 
 ```bash
 # On laptop: Transfer repo via SCP
-scp -r /Users/lukechung/Desktop/casm_analog_power_controller casm@192.168.1.100:~/
+scp -r /Users/lukechung/Desktop/casm_analog_power_controller casm@192.168.1.2:~/
 
 # On Pi: Run setup (requires manual dependency installation)
-ssh casm@192.168.1.100
+ssh casm@192.168.1.2
 cd casm_analog_power_controller
 ./setup_pi.sh
 ```
