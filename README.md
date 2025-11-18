@@ -74,63 +74,65 @@ git commit -m "Configure system for deployment"
 git push origin main
 ```
 
-### Step 2: Export Python Packages (Offline Deployment - No WiFi!)
-
-**On your laptop** (one-time setup), export packages that match Docker container:
-
-```bash
-cd ~/Desktop/casm_analog_power_controller
-./export_packages.sh
-```
-
-This downloads all required Python packages locally (~20 .whl files), ensuring:
-- ✅ **Same versions as Docker main server** (perfect consistency)
-- ✅ **No WiFi needed on Pis** (RFI-safe environment)
-- ✅ **Faster installation** (no internet downloads)
-- ✅ **Reliable deployment** (no network failures)
-
-Output is saved to `pi_packages/` directory.
-
-### Step 3: Deploy to Raspberry Pis
+### Step 2: Deploy to Raspberry Pis
 
 **Same steps for ALL Pis - they auto-configure based on Static IP!**
 
 > **Note:** The Pis use username `casm` (not the default `pi`). Make sure both Pis have the same username for consistency.
 
-> **Important:** Pis use **Ethernet only** (no WiFi/Bluetooth) to prevent Radio Frequency Interference (RFI) with the radio telescope. All file transfers use direct Ethernet connection via SCP.
+> **Important:** Pis have WiFi/Bluetooth hardware **disabled** to prevent Radio Frequency Interference (RFI) with the radio telescope. Internet is provided by sharing your laptop's WiFi through the Ethernet cable during setup.
+
+#### Initial Setup (ONE TIME per Pi)
 
 ```bash
-# Transfer repo + packages to Pi via Ethernet (no WiFi - RFI protection!)
-# On your laptop, connect Ethernet cable and configure:
-#   - Laptop: 192.168.1.1
-#   - Pi: 192.168.1.2 (or 192.168.1.3 for Pi 2)
+# 1. Connect Pi to laptop via Ethernet cable
+# 2. Enable internet sharing on laptop (System Settings → Sharing → Internet Sharing)
+# 3. SSH to Pi
+ssh casm@192.168.1.100
 
-# Copy repo and offline packages to Pi via SCP
-scp -r /Users/lukechung/Desktop/casm_analog_power_controller casm@192.168.1.2:~/
-scp -r pi_packages casm@192.168.1.2:~/
-
-# SSH to Pi
-ssh casm@192.168.1.2
-
-# Navigate to repo and run OFFLINE setup script
+# 4. Clone repository
+git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
 cd casm_analog_power_controller
-./setup_pi_offline.sh
+
+# 5. Run setup script (installs dependencies via laptop's shared internet)
+./setup_pi.sh
 
 # The setup script will:
 #   - Check Python version (requires 3.9+)
 #   - Check I2C interface is enabled
-#   - Find ~/pi_packages offline cache
+#   - Check internet connectivity (via laptop's shared connection)
 #   - Create isolated Python virtual environment
-#   - Install dependencies from LOCAL files (no internet!)
-#   - Detect Pi IP and verify configuration
-#   - Test for relay HATs on I2C bus
+#   - Install dependencies from PyPI (using laptop's internet)
+#   - Auto-detect Pi configuration from main_config.yaml
 
-# After setup completes, start Pi server
+# 6. Start the server
 ./start_pi_server.sh
+```
 
-# Or manually with venv:
-#   - source venv/bin/activate
-#   - python3 run_pi_server.py
+#### Future Updates (Easy!)
+
+```bash
+# SSH to Pi
+ssh casm@192.168.1.100
+cd casm_analog_power_controller
+
+# Pull latest changes
+git pull
+
+# Restart server
+./start_pi_server.sh
+```
+
+#### Alternative: SCP Method (if Git or Internet Sharing Not Working)
+
+```bash
+# On laptop: Transfer repo via SCP
+scp -r /Users/lukechung/Desktop/casm_analog_power_controller casm@192.168.1.100:~/
+
+# On Pi: Run setup (requires manual dependency installation)
+ssh casm@192.168.1.100
+cd casm_analog_power_controller
+./setup_pi.sh
 ```
 
 Pi automatically:

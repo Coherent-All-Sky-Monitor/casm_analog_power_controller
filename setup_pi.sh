@@ -1,11 +1,11 @@
 #!/bin/bash
 # CASM Analog Power Controller - Pi Setup Script
-# Run this script on each Raspberry Pi after transferring the repo via SCP
+# Run this on Pi with internet connection (shared from laptop via Ethernet)
 
-set -e  # Exit on any error
+set -e
 
 echo "============================================================"
-echo "CASM Analog Power Controller - Pi Setup"
+echo "🚀 CASM Analog Power Controller - Pi Setup"
 echo "============================================================"
 echo ""
 
@@ -20,7 +20,7 @@ if [ ! -f /proc/device-tree/model ] || ! grep -q "Raspberry Pi" /proc/device-tre
 fi
 
 # Check Python version
-echo "Checking Python version..."
+echo "📋 Checking Python version..."
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
 REQUIRED_VERSION="3.9"
 
@@ -32,7 +32,7 @@ echo "✅ Python $PYTHON_VERSION detected"
 echo ""
 
 # Check if I2C is enabled
-echo "Checking I2C interface..."
+echo "📋 Checking I2C interface..."
 if ! ls /dev/i2c-* 1> /dev/null 2>&1; then
     echo "⚠️  Warning: I2C interface not detected"
     echo "   Enable it with: sudo raspi-config → Interface Options → I2C"
@@ -46,8 +46,28 @@ else
 fi
 echo ""
 
+# Check internet connectivity
+echo "📋 Checking internet connection..."
+if ! ping -c 1 -W 2 pypi.org &> /dev/null; then
+    echo "⚠️  Warning: Cannot reach PyPI (pypi.org)"
+    echo ""
+    echo "Make sure your laptop is sharing internet via Ethernet:"
+    echo "  1. On macOS: System Settings → Sharing → Internet Sharing"
+    echo "     Share: Wi-Fi, To computers using: Ethernet"
+    echo "  2. On Pi, check internet: ping pypi.org"
+    echo ""
+    read -p "Continue anyway? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+else
+    echo "✅ Internet connection detected"
+fi
+echo ""
+
 # Create virtual environment
-echo "Setting up Python virtual environment..."
+echo "📦 Setting up Python virtual environment..."
 if [ -d "venv" ]; then
     echo "   Virtual environment already exists, using existing one"
 else
@@ -61,16 +81,22 @@ else
 fi
 echo ""
 
-# Activate virtual environment and install dependencies
-echo "Installing Python dependencies in virtual environment..."
+# Activate virtual environment and install from PyPI
+echo "📦 Installing Python dependencies from PyPI..."
+echo "   (This will download packages from the internet)"
 echo ""
 
-# Activate venv and install
 source venv/bin/activate
 if pip install -r requirements.txt; then
-    echo "✅ Dependencies installed successfully in virtual environment"
+    echo "✅ Dependencies installed successfully"
 else
     echo "❌ Error: Failed to install dependencies"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  1. Check internet: ping pypi.org"
+    echo "  2. Check DNS: cat /etc/resolv.conf"
+    echo "  3. Try manual install: pip install flask"
+    echo ""
     deactivate
     exit 1
 fi
@@ -78,7 +104,7 @@ deactivate
 echo ""
 
 # Detect Pi configuration
-echo "Detecting Pi configuration..."
+echo "🔍 Detecting Pi configuration..."
 PI_IP=$(hostname -I | awk '{print $1}')
 echo "   Detected IP: $PI_IP"
 
@@ -97,16 +123,18 @@ echo "============================================================"
 echo "✅ Setup complete!"
 echo "============================================================"
 echo ""
+echo "✅ Virtual environment ready"
+echo "✅ All dependencies installed"
+echo "✅ Same package versions as Docker main server"
+echo ""
 echo "Next steps:"
-echo "  1. Configure hardware setup with relay HATs and wiring"
-echo "  2. Verify configuration in main_config.yaml matches this Pi's hardware setup"
-echo "  3. Start the server with virtual environment:"
+echo "  1. Connect relay HATs to I2C bus"
+echo "  2. Start the server:"
+echo ""
+echo "     ./start_pi_server.sh"
+echo ""
+echo "  3. Or manually:"
 echo ""
 echo "     source venv/bin/activate"
 echo "     python3 run_pi_server.py"
 echo ""
-echo "  4. Or use the provided start script:"
-echo ""
-echo "     ./start_pi_server.sh"
-echo ""
-

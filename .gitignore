@@ -3,9 +3,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 
-# Offline package cache for Pi deployment
-pi_packages/
-
 # C extensions
 *.so
 
