@@ -74,7 +74,24 @@ git commit -m "Configure system for deployment"
 git push origin main
 ```
 
-### Step 2: Deploy to Raspberry Pis
+### Step 2: Export Python Packages (Offline Deployment - No WiFi!)
+
+**On your laptop** (one-time setup), export packages that match Docker container:
+
+```bash
+cd ~/Desktop/casm_analog_power_controller
+./export_packages.sh
+```
+
+This downloads all required Python packages locally (~20 .whl files), ensuring:
+- ✅ **Same versions as Docker main server** (perfect consistency)
+- ✅ **No WiFi needed on Pis** (RFI-safe environment)
+- ✅ **Faster installation** (no internet downloads)
+- ✅ **Reliable deployment** (no network failures)
+
+Output is saved to `pi_packages/` directory.
+
+### Step 3: Deploy to Raspberry Pis
 
 **Same steps for ALL Pis - they auto-configure based on Static IP!**
 
@@ -83,26 +100,28 @@ git push origin main
 > **Important:** Pis use **Ethernet only** (no WiFi/Bluetooth) to prevent Radio Frequency Interference (RFI) with the radio telescope. All file transfers use direct Ethernet connection via SCP.
 
 ```bash
-# Transfer repo to Pi via Ethernet (no WiFi - RFI protection!)
+# Transfer repo + packages to Pi via Ethernet (no WiFi - RFI protection!)
 # On your laptop, connect Ethernet cable and configure:
 #   - Laptop: 192.168.1.1
 #   - Pi: 192.168.1.2 (or 192.168.1.3 for Pi 2)
 
-# Copy entire repo to Pi via SCP
+# Copy repo and offline packages to Pi via SCP
 scp -r /Users/lukechung/Desktop/casm_analog_power_controller casm@192.168.1.2:~/
+scp -r pi_packages casm@192.168.1.2:~/
 
 # SSH to Pi
 ssh casm@192.168.1.2
 
-# Navigate to repo and run setup script
+# Navigate to repo and run OFFLINE setup script
 cd casm_analog_power_controller
-./setup_pi.sh
+./setup_pi_offline.sh
 
 # The setup script will:
 #   - Check Python version (requires 3.9+)
 #   - Check I2C interface is enabled
+#   - Find ~/pi_packages offline cache
 #   - Create isolated Python virtual environment
-#   - Install all dependencies in venv (no system conflicts!)
+#   - Install dependencies from LOCAL files (no internet!)
 #   - Detect Pi IP and verify configuration
 #   - Test for relay HATs on I2C bus
 
@@ -110,13 +129,8 @@ cd casm_analog_power_controller
 ./start_pi_server.sh
 
 # Or manually with venv:
-# source venv/bin/activate
-# python3 run_pi_server.py
-# 🔍 Detected this Pi's IP address: 192.168.1.2
-# ✅ Loaded configuration for pi_1 from main_config.yaml
-#    - Chassis: [1, 2]
-#    - Relay boards: 3
-#    - Switch mappings: 24 switches
+#   - source venv/bin/activate
+#   - python3 run_pi_server.py
 ```
 
 Pi automatically:
@@ -125,14 +139,14 @@ Pi automatically:
 - Loads hardware specs and switch mappings
 - Starts server on port 5001
 
-### Step 3: Start Main Server (Docker)
+### Step 4: Start Main Server (Docker)
 
 **Prerequisites:**
 - Docker installed ([Install Docker](https://docs.docker.com/get-docker/))
 - Docker Compose installed (usually comes with Docker Desktop)
 
 ```bash
-# On main server (laptop or OVRO server)
+# On main server
 cd casm_analog_power_controller
 
 # Create data directory for database persistence
@@ -165,7 +179,7 @@ docker-compose up -d --build
 docker-compose logs -f main_server
 ```
 
-### Step 4: Test
+### Step 5: Test
 
 ```bash
 # Check system status

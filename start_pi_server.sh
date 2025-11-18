@@ -12,11 +12,11 @@ if [ ! -d "venv" ]; then
 fi
 
 # Activate virtual environment
-echo "🔄 Activating virtual environment..."
+echo "Activating virtual environment..."
 source venv/bin/activate
 
 # Start the server
-echo "🚀 Starting Pi server..."
+echo "Starting Pi server..."
 echo ""
 python3 run_pi_server.py
 

@@ -1,11 +1,11 @@
 #!/bin/bash
-# CASM Analog Power Controller - Pi Setup Script
-# Run this script on each Raspberry Pi after transferring the repo via SCP
+# CASM Analog Power Controller - Pi Offline Setup Script
+# Run this script on Pi after transferring packages via export_packages.sh
 
-set -e  # Exit on any error
+set -e
 
 echo "============================================================"
-echo "CASM Analog Power Controller - Pi Setup"
+echo "🚀 CASM Analog Power Controller - Pi Offline Setup"
 echo "============================================================"
 echo ""
 
@@ -20,7 +20,7 @@ if [ ! -f /proc/device-tree/model ] || ! grep -q "Raspberry Pi" /proc/device-tre
 fi
 
 # Check Python version
-echo "Checking Python version..."
+echo "📋 Checking Python version..."
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
 REQUIRED_VERSION="3.9"
 
@@ -32,7 +32,7 @@ echo "✅ Python $PYTHON_VERSION detected"
 echo ""
 
 # Check if I2C is enabled
-echo "Checking I2C interface..."
+echo "📋 Checking I2C interface..."
 if ! ls /dev/i2c-* 1> /dev/null 2>&1; then
     echo "⚠️  Warning: I2C interface not detected"
     echo "   Enable it with: sudo raspi-config → Interface Options → I2C"
@@ -46,8 +46,24 @@ else
 fi
 echo ""
 
+# Check if packages directory exists
+if [ ! -d "$HOME/pi_packages" ]; then
+    echo "❌ Error: Package directory not found: ~/pi_packages"
+    echo ""
+    echo "Please run these commands on your laptop first:"
+    echo "  1. cd ~/Desktop/casm_analog_power_controller"
+    echo "  2. ./export_packages.sh"
+    echo "  3. scp -r pi_packages casm@192.168.1.2:~/"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Found offline package cache: ~/pi_packages"
+echo "   Package count: $(ls -1 ~/pi_packages | wc -l)"
+echo ""
+
 # Create virtual environment
-echo "Setting up Python virtual environment..."
+echo "📦 Setting up Python virtual environment..."
 if [ -d "venv" ]; then
     echo "   Virtual environment already exists, using existing one"
 else
@@ -61,14 +77,14 @@ else
 fi
 echo ""
 
-# Activate virtual environment and install dependencies
-echo "Installing Python dependencies in virtual environment..."
+# Activate virtual environment and install from local packages
+echo "📦 Installing Python dependencies from offline cache..."
+echo "   (Installing from local files - no internet needed!)"
 echo ""
 
-# Activate venv and install
 source venv/bin/activate
-if pip install -r requirements.txt; then
-    echo "✅ Dependencies installed successfully in virtual environment"
+if pip install --no-index --find-links ~/pi_packages -r requirements.txt; then
+    echo "✅ Dependencies installed successfully from offline cache"
 else
     echo "❌ Error: Failed to install dependencies"
     deactivate
@@ -78,7 +94,7 @@ deactivate
 echo ""
 
 # Detect Pi configuration
-echo "Detecting Pi configuration..."
+echo "🔍 Detecting Pi configuration..."
 PI_IP=$(hostname -I | awk '{print $1}')
 echo "   Detected IP: $PI_IP"
 
@@ -94,19 +110,22 @@ echo ""
 
 # All done!
 echo "============================================================"
-echo "✅ Setup complete!"
+echo "✅ Offline setup complete!"
 echo "============================================================"
 echo ""
+echo "✅ All packages installed from local cache (no internet used)"
+echo "✅ Virtual environment ready"
+echo "✅ Same packages as Docker main server (100% consistent)"
+echo ""
 echo "Next steps:"
-echo "  1. Configure hardware setup with relay HATs and wiring"
-echo "  2. Verify configuration in main_config.yaml matches this Pi's hardware setup"
-echo "  3. Start the server with virtual environment:"
+echo "  1. Connect relay HATs to I2C bus"
+echo "  2. Start the server:"
+echo ""
+echo "     ./start_pi_server.sh"
+echo ""
+echo "  3. Or manually:"
 echo ""
 echo "     source venv/bin/activate"
 echo "     python3 run_pi_server.py"
-echo ""
-echo "  4. Or use the provided start script:"
-echo ""
-echo "     ./start_pi_server.sh"
 echo ""
 
