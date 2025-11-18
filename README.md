@@ -101,12 +101,17 @@ cd casm_analog_power_controller
 # The setup script will:
 #   - Check Python version (requires 3.9+)
 #   - Check I2C interface is enabled
-#   - Install all dependencies automatically
+#   - Create isolated Python virtual environment
+#   - Install all dependencies in venv (no system conflicts!)
 #   - Detect Pi IP and verify configuration
 #   - Test for relay HATs on I2C bus
 
 # After setup completes, start Pi server
-python3 run_pi_server.py
+./start_pi_server.sh
+
+# Or manually with venv:
+# source venv/bin/activate
+# python3 run_pi_server.py
 # 🔍 Detected this Pi's IP address: 192.168.1.2
 # ✅ Loaded configuration for pi_1 from main_config.yaml
 #    - Chassis: [1, 2]

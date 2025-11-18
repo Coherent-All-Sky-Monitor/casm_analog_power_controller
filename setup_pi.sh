@@ -46,21 +46,36 @@ else
 fi
 echo ""
 
-# Install dependencies
-echo "📦 Installing Python dependencies..."
+# Create virtual environment
+echo "📦 Setting up Python virtual environment..."
+if [ -d "venv" ]; then
+    echo "   Virtual environment already exists, using existing one"
+else
+    echo "   Creating new virtual environment..."
+    if ! python3 -m venv venv; then
+        echo "❌ Error: Failed to create virtual environment"
+        echo "   Install venv with: sudo apt install python3-venv"
+        exit 1
+    fi
+    echo "✅ Virtual environment created"
+fi
+echo ""
+
+# Activate virtual environment and install dependencies
+echo "📦 Installing Python dependencies in virtual environment..."
 echo "   (This may take a few minutes on first run)"
 echo ""
 
-# Try with --break-system-packages first (for Bookworm)
-if pip3 install -r requirements.txt --break-system-packages 2>/dev/null; then
-    echo "✅ Dependencies installed successfully"
-elif pip3 install -r requirements.txt 2>/dev/null; then
-    echo "✅ Dependencies installed successfully"
+# Activate venv and install
+source venv/bin/activate
+if pip install -r requirements.txt; then
+    echo "✅ Dependencies installed successfully in virtual environment"
 else
     echo "❌ Error: Failed to install dependencies"
-    echo "   Try manually: pip3 install -r requirements.txt --break-system-packages"
+    deactivate
     exit 1
 fi
+deactivate
 echo ""
 
 # Detect Pi configuration
@@ -101,10 +116,15 @@ echo ""
 echo "Next steps:"
 echo "  1. Verify configuration in main_config.yaml matches this Pi"
 echo "  2. Connect relay HATs to I2C bus"
-echo "  3. Start the server:"
+echo "  3. Start the server with virtual environment:"
 echo ""
+echo "     source venv/bin/activate"
 echo "     python3 run_pi_server.py"
 echo ""
-echo "  4. Or set up as systemd service for auto-start on boot"
+echo "  4. Or use the provided start script:"
+echo ""
+echo "     ./start_pi_server.sh"
+echo ""
+echo "  5. Or set up as systemd service for auto-start on boot"
 echo ""
 
