@@ -70,7 +70,7 @@ nano main_config.yaml
 ```bash
 # Commit and push to GitHub
 git add main_config.yaml
-git commit -m "Configure system for telescope deployment"
+git commit -m "Configure system for deployment"
 git push origin main
 ```
 
@@ -97,8 +97,16 @@ ssh casm@192.168.1.2
 # Navigate to repo
 cd casm_analog_power_controller
 
-# Install dependencies
-pip3 install -r requirements.txt
+# Verify Python version (should be 3.9+)
+python3 --version
+
+# Install dependencies (use --break-system-packages on Raspberry Pi OS Bookworm)
+pip3 install -r requirements.txt --break-system-packages
+
+# OR use virtual environment (recommended for cleaner setup):
+# python3 -m venv venv
+# source venv/bin/activate
+# pip install -r requirements.txt
 
 # Start Pi server - it auto-detects which config to use based on static IP
 python3 run_pi_server.py
