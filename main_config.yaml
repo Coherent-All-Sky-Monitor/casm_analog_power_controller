@@ -1,0 +1,88 @@
+# Main Server Configuration - Two Pi Deployment
+# All switch mappings are centralized here!
+# Edit this file locally, then push to GitHub
+
+raspberry_pis:
+  pi_1:
+    ip_address: "192.168.1.2"
+    port: 5001
+    chassis: [1, 2]
+    description: "Pi 1 - Chassis 1 & 2"
+    num_relay_hats: 3
+    relays_per_hat: 8
+    
+    # Switch mappings for Chassis 1 & 2 (customize based on actual wiring!)
+    switch_mapping:
+      # ============ CHASSIS 1 (12 switches total) ============
+      # 1 chassis power switch + 11 individual SNAP switches
+      CH1: {hat: 0, relay: 1}   # Chassis 1 full power
+      CH1A: {hat: 0, relay: 2}  # SNAP 1
+      CH1B: {hat: 0, relay: 3}  # SNAP 2
+      CH1C: {hat: 0, relay: 4}  # SNAP 3
+      CH1D: {hat: 0, relay: 5}  # SNAP 4
+      CH1E: {hat: 0, relay: 6}  # SNAP 5
+      CH1F: {hat: 0, relay: 7}  # SNAP 6
+      CH1G: {hat: 0, relay: 8}  # SNAP 7
+      CH1H: {hat: 1, relay: 1}  # SNAP 8
+      CH1I: {hat: 1, relay: 2}  # SNAP 9
+      CH1J: {hat: 1, relay: 3}  # SNAP 10
+      CH1K: {hat: 1, relay: 4}  # SNAP 11
+      
+      # ============ CHASSIS 2 (12 switches total) ============
+      CH2: {hat: 1, relay: 5}   # Chassis 2 full power
+      CH2A: {hat: 1, relay: 6}  # SNAP 1
+      CH2B: {hat: 1, relay: 7}  # SNAP 2
+      CH2C: {hat: 1, relay: 8}  # SNAP 3
+      CH2D: {hat: 2, relay: 1}  # SNAP 4
+      CH2E: {hat: 2, relay: 2}  # SNAP 5
+      CH2F: {hat: 2, relay: 3}  # SNAP 6
+      CH2G: {hat: 2, relay: 4}  # SNAP 7
+      CH2H: {hat: 2, relay: 5}  # SNAP 8
+      CH2I: {hat: 2, relay: 6}  # SNAP 9
+      CH2J: {hat: 2, relay: 7}  # SNAP 10
+      CH2K: {hat: 2, relay: 8}  # SNAP 11
+  
+  pi_2:
+    ip_address: "192.168.1.101"
+    port: 5001
+    chassis: [3, 4]
+    description: "Pi 2 - Chassis 3 & 4"
+    num_relay_hats: 3
+    relays_per_hat: 8
+    
+    # Switch mappings for Chassis 3 & 4 (customize based on actual wiring!)
+    switch_mapping:
+      # ============ CHASSIS 3 (12 switches total) ============
+      CH3: {hat: 0, relay: 1}   # Chassis 3 full power
+      CH3A: {hat: 0, relay: 2}  # SNAP 1
+      CH3B: {hat: 0, relay: 3}  # SNAP 2
+      CH3C: {hat: 0, relay: 4}  # SNAP 3
+      CH3D: {hat: 0, relay: 5}  # SNAP 4
+      CH3E: {hat: 0, relay: 6}  # SNAP 5
+      CH3F: {hat: 0, relay: 7}  # SNAP 6
+      CH3G: {hat: 0, relay: 8}  # SNAP 7
+      CH3H: {hat: 1, relay: 1}  # SNAP 8
+      CH3I: {hat: 1, relay: 2}  # SNAP 9
+      CH3J: {hat: 1, relay: 3}  # SNAP 10
+      CH3K: {hat: 1, relay: 4}  # SNAP 11
+      
+      # ============ CHASSIS 4 (11 switches total) ============
+      # Note: CH4 only has 10 SNAPs (A-J), not 11
+      CH4: {hat: 1, relay: 5}   # Chassis 4 full power
+      CH4A: {hat: 1, relay: 6}  # SNAP 1
+      CH4B: {hat: 1, relay: 7}  # SNAP 2
+      CH4C: {hat: 1, relay: 8}  # SNAP 3
+      CH4D: {hat: 2, relay: 1}  # SNAP 4
+      CH4E: {hat: 2, relay: 2}  # SNAP 5
+      CH4F: {hat: 2, relay: 3}  # SNAP 6
+      CH4G: {hat: 2, relay: 4}  # SNAP 7
+      CH4H: {hat: 2, relay: 5}  # SNAP 8
+      CH4I: {hat: 2, relay: 6}  # SNAP 9
+      CH4J: {hat: 2, relay: 7}  # SNAP 10
+
+status_check_interval: 30
+request_timeout: 5
+
+# NOTE: All switch mappings are centralized here in main_config.yaml
+# HAT numbers are 0-based (0, 1, 2)
+# Relay numbers are 1-based (1-8) to match physical hardware labels!

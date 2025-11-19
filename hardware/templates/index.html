@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8-Relay Power Controller</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ CASM Analog Power Controller</h1>
+            <p class="subtitle" id="pi-subtitle">Pi Server Control Interface</p>
+            <div class="header-controls">
+                <button class="reset-btn" onclick="turnOffAllRelays()">Turn OFF All Relays</button>
+                <button class="on-btn" onclick="turnOnAllRelays()">Turn ON All Relays</button>
+            </div>
+            <div id="status-message" class="health-status"></div>
+        </header>
+
+        <div id="relay-grid">
+            <!-- Switch controls will be dynamically generated here -->
+        </div>
+
+        <!-- curl Command Examples Section -->
+        <div class="api-examples">
+            <h2>📡 API Usage (curl Commands)</h2>
+            
+            <div class="example-section">
+                <h3>Turn Switch ON/OFF</h3>
+                <pre><code># Turn CH1 chassis ON
+curl -X POST http://localhost:5001/api/switch/CH1 \
+  -H "Content-Type: application/json" \
+  -d '{"state": 1}'
+
+# Turn CH1A BACboard OFF
+curl -X POST http://localhost:5001/api/switch/CH1A \
+  -H "Content-Type: application/json" \
+  -d '{"state": 0}'</code></pre>
+            </div>
+
+            <div class="example-section">
+                <h3>Get Switch Status</h3>
+                <pre><code># Get CH1 status
+curl http://localhost:5001/api/switch/CH1
+
+# Get all switches for chassis 1
+curl http://localhost:5001/api/switch/chassis/1
+
+# List all switches
+curl http://localhost:5001/api/switch/list</code></pre>
+            </div>
+
+            <div class="example-section">
+                <h3>Legacy API (by stack/relay number)</h3>
+                <pre><code># Still supported for backward compatibility
+curl -X POST http://localhost:5001/api/relay/0/1 \
+  -H "Content-Type: application/json" \
+  -d '{"state": 1}'</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and render switch states for ALL chassis controlled by this Pi
+        async function fetchRelayStates() {
+            try {
+                // Fetch all switches this Pi controls
+                const response = await fetch('/api/switch/list');
+                const data = await response.json();
+                renderSwitches(data);
+            } catch (error) {
+                console.error('Error fetching switch states:', error);
+                showError('Failed to fetch switch states. Check hardware connection or ensure the Flask server is running.');
+            }
+        }
+
+        // Render all switches organized by chassis
+        function renderSwitches(data) {
+            const grid = document.getElementById('relay-grid');
+            grid.innerHTML = '';
+
+            if (!data.switches) {
+                showError('No switch data available');
+                return;
+            }
+
+            // Group switches by chassis
+            const chassisGroups = {};
+            for (const [name, state] of Object.entries(data.switches)) {
+                const chassisMatch = name.match(/CH(\d+)/);
+                if (chassisMatch) {
+                    const chassisNum = parseInt(chassisMatch[1]);
+                    if (!chassisGroups[chassisNum]) {
+                        chassisGroups[chassisNum] = {
+                            chassis: null,
+                            bacboards: []
+                        };
+                    }
+                    
+                    // Check if this is the chassis switch (no letter after number)
+                    if (name === `CH${chassisNum}`) {
+                        chassisGroups[chassisNum].chassis = { name, state };
+                    } else {
+                        chassisGroups[chassisNum].bacboards.push({ name, state });
+                    }
+                }
+            }
+
+            // Update subtitle with chassis info
+            const chassisNums = Object.keys(chassisGroups).sort();
+            document.getElementById('pi-subtitle').textContent = 
+                `Pi Server - Controlling Chassis ${chassisNums.join(' & ')}`;
+
+            // Render each chassis
+            for (const [chassisNum, group] of Object.entries(chassisGroups)) {
+                // Create chassis section
+                const chassisSection = document.createElement('div');
+                chassisSection.className = 'stack chassis-section';
+                chassisSection.style.marginBottom = '30px';
+                
+                const sectionTitle = document.createElement('h2');
+                sectionTitle.textContent = `🔌 Chassis ${chassisNum}`;
+                sectionTitle.style.marginBottom = '15px';
+                chassisSection.appendChild(sectionTitle);
+
+                // Chassis power switch
+                if (group.chassis) {
+                    const chassisDiv = document.createElement('div');
+                    chassisDiv.className = 'stack';
+                    
+                    const chassisHeader = document.createElement('h3');
+                    chassisHeader.textContent = 'Chassis Power';
+                    chassisDiv.appendChild(chassisHeader);
+
+                    const chassisContainer = document.createElement('div');
+                    chassisContainer.className = 'relay-container';
+
+                    const switchBtn = document.createElement('button');
+                    switchBtn.className = `relay chassis ${group.chassis.state === 1 ? 'on' : 'off'}`;
+                    switchBtn.textContent = group.chassis.name;
+                    switchBtn.onclick = () => toggleSwitch(group.chassis.name, group.chassis.state);
+                    chassisContainer.appendChild(switchBtn);
+
+                    chassisDiv.appendChild(chassisContainer);
+                    chassisSection.appendChild(chassisDiv);
+                }
+
+                // BACboards section
+                if (group.bacboards.length > 0) {
+                    const bacboardDiv = document.createElement('div');
+                    bacboardDiv.className = 'stack bacboard-section';
+
+                    const bacboardHeader = document.createElement('h3');
+                    bacboardHeader.textContent = `📋 BACboard Controls (${group.bacboards.length} SNAPs)`;
+                    bacboardDiv.appendChild(bacboardHeader);
+
+                    const bacboardContainer = document.createElement('div');
+                    bacboardContainer.className = 'relay-container';
+
+                    // Sort and display BACboards
+                    group.bacboards.sort((a, b) => a.name.localeCompare(b.name));
+                    group.bacboards.forEach(snap => {
+                        const switchBtn = document.createElement('button');
+                        switchBtn.className = `relay bacboard ${snap.state === 1 ? 'on' : 'off'}`;
+                        switchBtn.textContent = snap.name;
+                        switchBtn.onclick = () => toggleSwitch(snap.name, snap.state);
+                        bacboardContainer.appendChild(switchBtn);
+                    });
+
+                    bacboardDiv.appendChild(bacboardContainer);
+                    chassisSection.appendChild(bacboardDiv);
+                }
+
+                grid.appendChild(chassisSection);
+            }
+        }
+
+        // Toggle switch state using the new API
+        async function toggleSwitch(switchName, currentState) {
+            const newState = currentState === 1 ? 0 : 1;
+            
+            try {
+                const response = await fetch(`/api/switch/${switchName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ state: newState })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                    showSuccess(result.message || `${switchName} toggled`);
+                } else {
+                    showError(result.error || 'Failed to toggle switch');
+                }
+            } catch (error) {
+                console.error('Error toggling switch:', error);
+                showError('Network error. Check connection to Raspberry Pi.');
+            }
+        }
+
+        // Turn OFF all relays
+        async function turnOffAllRelays() {
+            if (!confirm('Are you sure you want to turn OFF all relays?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/relay/all-off', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                    showSuccess('All relays turned OFF');
+                } else {
+                    showError('Failed to turn off relays');
+                }
+            } catch (error) {
+                console.error('Error turning off relays:', error);
+                showError('Network error. Check connection.');
+            }
+        }
+
+        // Turn ON all relays
+        async function turnOnAllRelays() {
+            if (!confirm('Are you sure you want to turn ON all relays?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/relay/all-on', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    fetchRelayStates(); // Refresh the UI
+                    showSuccess('All relays turned ON');
+                } else {
+                    showError('Failed to turn on relays');
+                }
+            } catch (error) {
+                console.error('Error turning on relays:', error);
+                showError('Network error. Check connection.');
+            }
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.innerHTML = `<span class="success">✓ ${message}</span>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        // Show error message
+        function showError(message) {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.innerHTML = `<span class="error">✗ ${message}</span>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // Auto-refresh every 2 seconds
+        setInterval(fetchRelayStates, 2000);
+
+        // Initial load
+        fetchRelayStates();
+    </script>
+</body>
+</html>

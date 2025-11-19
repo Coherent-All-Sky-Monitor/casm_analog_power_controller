@@ -1,0 +1,11 @@
+flask==3.0.3
+werkzeug==3.0.3
+pyyaml==6.0.1
+requests==2.31.0
+
+# Hardware library for Sequent Microsystems 8-relay boards
+# Documentation: https://github.com/SequentMicrosystems/8relind-rpi
+SM8relind>=2.0.0
+
+# I2C communication library (required for Raspberry Pi hardware)
+smbus2>=0.4.0
