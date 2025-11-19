@@ -84,25 +84,31 @@ git push origin main
 
 #### Static IP Configuration
 
-**Development (Your Laptop):**
-- Pi 1: `192.168.2.2` (hardcoded static IP)
-- Pi 2: `192.168.2.3` (hardcoded static IP)
-- Use macOS Internet Sharing (automatically uses 192.168.2.x subnet)
+**Development Setup:**
+- Pi connects to WiFi network
+- Configure static IPs on Pi WiFi interface to match `main_config.yaml`
+- Your computer also connects to same WiFi network to SCP/clone repo
+- Pi 1: `192.168.1.2` (as defined in `main_config.yaml`)
+- Pi 2: `192.168.1.101` (as defined in `main_config.yaml`)
 
-**Configure Static IPs on Pis:**
+**Configure Static IPs on Pi WiFi:**
 ```bash
 # On each Pi, edit network config:
 sudo nano /etc/dhcpcd.conf
 
-# Add at the end (use 'end0' for RPi 5, 'eth0' for older models):
-interface end0
-static ip_address=192.168.2.2/24  # Use .3 for Pi 2
-static routers=192.168.2.1
+# Add at the end (for WiFi interface):
+interface wlan0
+static ip_address=192.168.1.2/24  # Use 192.168.1.101 for Pi 2
+static routers=192.168.1.1  # Your WiFi router IP
 static domain_name_servers=8.8.8.8 8.8.4.4
 
 # Save and reboot
 sudo reboot
 ```
+
+**Configure Your Computer:**
+- Connect your laptop/computer to the same WiFi network
+- This allows you to SSH and SCP/clone the repo to the Pi
 
 **Production (OVRO) - IMPORTANT:**
 
@@ -157,83 +163,100 @@ Before deploying to OVRO, coordinate with network administrators:
 
 #### Initial Setup (ONE TIME per Pi)
 
-**Workflow:** Pi needs temporary internet for setup, then WiFi/Bluetooth are disabled to prevent RFI.
+**Workflow:** 
+1. Pi connects to WiFi with static IP
+2. Clone repo and install dependencies (WiFi provides internet)
+3. Disable WiFi/Bluetooth hardware to prevent RFI
+4. Connect via Ethernet (static IP) and run code
 
 ```bash
-# 1. Temporarily enable WiFi on Pi to download dependencies
-#    (Can be disabled after installation)
-#    Connect Pi to WiFi network temporarily
+# 1. Connect Pi to WiFi network and configure static IP
+#    See "Static IP Configuration" section above
+#    Pi 1: 192.168.1.2, Pi 2: 192.168.1.101
 
-# 2. SSH to Pi (via WiFi or Ethernet)
-ssh casm@<pi-ip>
+# 2. Connect your computer to the same WiFi network
+#    This allows SSH and SCP/clone access
 
-# 3. Clone repository
+# 3. SSH to Pi (via WiFi static IP)
+ssh casm@192.168.1.2  # Pi 1 (or 192.168.1.101 for Pi 2)
+
+# 4. Clone repository (WiFi provides internet access)
 git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
 cd casm_analog_power_controller
 
-# 4. Create virtual environment (optional but recommended)
+# 5. Create virtual environment (optional but recommended)
 python3 -m venv venv
 source venv/bin/activate
 
-# 5. Install dependencies (requires internet)
+# 6. Install dependencies (via WiFi internet)
 pip3 install -r requirements.txt
 
-# 6. Disable WiFi and Bluetooth (REQUIRED for RFI prevention)
+# 7. Disable WiFi and Bluetooth (REQUIRED for RFI prevention)
 sudo nano /boot/firmware/config.txt
 # Add these lines at the end:
 #   dtoverlay=disable-wifi
 #   dtoverlay=disable-bt
 # Save and reboot: sudo reboot
 
-# 7. After reboot, connect via Ethernet and start the server
-ssh casm@192.168.2.2  # Use static IP from Step 2
+# 8. After reboot, Pi WiFi/Bluetooth are disabled
+#    Configure Ethernet static IP (if not already configured)
+#    SSH via Ethernet static IP and start server
+#    Note: You may need to configure Ethernet static IP separately if using Ethernet for runtime
+ssh casm@192.168.1.2  # Use static IP configured in main_config.yaml
 cd casm_analog_power_controller
 source venv/bin/activate  # If using venv
 python3 run_hardware.py
 ```
 
 **Summary:**
-1. ✅ Pi starts with internet (WiFi enabled temporarily)
-2. ✅ Clone repo and install dependencies in virtual environment
-3. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
-4. ✅ Connect via Ethernet (static IP) and run code
+1. ✅ Pi connects to WiFi with static IP (192.168.1.2 or 192.168.1.101)
+2. ✅ Computer connects to same WiFi for SSH/SCP access
+3. ✅ Clone repo and install dependencies (WiFi provides internet)
+4. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
+5. ✅ Connect via Ethernet and run code
 
 #### Future Updates
 
-**Option A: Git Pull (requires internet over Ethernet)**
+**Option A: SCP Transfer (Recommended - no internet needed)**
 
-If you have internet sharing enabled from laptop to Pi via Ethernet:
-
-```bash
-# SSH to Pi via Ethernet
-ssh casm@192.168.2.2
-cd casm_analog_power_controller
-source venv/bin/activate  # If using venv
-
-# Pull latest changes (via laptop's shared internet)
-git pull
-
-# Restart server (Ctrl+C to stop, then restart)
-python3 run_hardware.py
-```
-
-**Option B: SCP Transfer (no internet needed)**
-
-Transfer updated files from laptop:
+Transfer updated files from laptop via Ethernet:
 
 ```bash
-# On laptop: Transfer updated files
+# On laptop: Transfer updated files (exclude .git, venv, etc.)
 cd ~/Desktop/casm_analog_power_controller
 tar --exclude='.git' --exclude='venv' --exclude='__pycache__' \
     -czf casm_update.tar.gz .
-scp casm_update.tar.gz casm@192.168.2.2:~/casm_analog_power_controller/
+scp casm_update.tar.gz casm@192.168.1.2:~/casm_analog_power_controller/
 
 # On Pi: Extract and restart
-ssh casm@192.168.2.2
+ssh casm@192.168.1.2  # Or 192.168.1.101 for Pi 2
 cd casm_analog_power_controller
 tar -xzf casm_update.tar.gz
 source venv/bin/activate  # If using venv
 python3 run_hardware.py
+```
+
+**Option B: Git Clone/Pull (requires WiFi re-enabled)**
+
+Only if you need to update dependencies:
+
+```bash
+# 1. Temporarily enable WiFi on Pi (remove disable overlays in config.txt)
+# 2. Connect Pi to WiFi
+# 3. SSH via WiFi static IP
+ssh casm@192.168.1.2
+cd casm_analog_power_controller
+source venv/bin/activate
+
+# Pull latest changes (WiFi provides internet)
+git pull
+
+# Reinstall dependencies if requirements.txt changed
+pip3 install -r requirements.txt
+
+# Disable WiFi again and reboot
+# Edit /boot/firmware/config.txt to re-enable disable overlays
+sudo reboot
 ```
 
 **Pi Auto-Configuration:**
@@ -644,130 +667,60 @@ switch_mapping:
 
 ---
 
-## Troubleshooting
-
-### Pi shows as "unreachable"
-
-**Check:**
-1. Is Pi powered on and running the server?
-2. Can you ping it? `ping 192.168.1.100`
-3. Is the IP correct in `main_config.yaml`?
-4. Test directly: `curl http://192.168.1.100:5001/api/status`
-
-**Fix:**
-- Restart Pi server: `ssh casm@<ip>` then `python3 run_pi_server.py`
-- Check network connection
-- Verify firewall allows port 5001
-
-### "Invalid switch name" error
-
-**Check:**
-1. Spelling correct? (`CH1` not `C1`)
-2. Is that Pi configured for that chassis?
-3. List valid switches: `curl http://main-server:5000/api/switch/list`
-
-### Wrong relay activates
-
-**Check:**
-1. Verify `chassis_controlled` in Pi's `local_config.yaml`
-2. Verify `chassis` in main server's `main_config.yaml`
-3. They must match!
-4. Restart both Pi and main server after config changes
-
-### Main server can't start
-
-**Error:** `Main server config not found`
-
-**Fix:**
-```bash
-cp main_config.example.yaml main_config.yaml
-nano main_config.yaml  # Edit IPs
-```
-
-### Pi server can't start
-
-**Error:** `Configuration file not found`
-
-**Fix:**
-```bash
-# For Pi 1:
-cp local_config.example.pi1.yaml local_config.yaml
-# For Pi 2:
-cp local_config.example.pi2.yaml local_config.yaml
-
-nano local_config.yaml  # Edit chassis and switch mappings
-```
-
-**Error:** `'switch_mapping' section is missing or empty`
-
-**Fix:** Add switch mappings to `local_config.yaml`:
-```yaml
-switch_mapping:
-  CH1: {hat: 0, relay: 0}
-  CH1A: {hat: 0, relay: 1}
-  # ... add all switches
-```
-
-**Error:** `Failed to initialize relay boards`
-
-**Fix:**
-- Enable I2C: `sudo raspi-config` → Interface Options → I2C
-- Check boards connected: `i2cdetect -y 1`
-- Verify jumper settings on boards
-
----
-
 ## Auto-Configuration System
 
-The system automatically detects which config file to use based on the Pi's IP address.
+The system automatically detects which Pi's configuration to use based on the Pi's IP address in `main_config.yaml`.
 
 ### How It Works:
 
-1. **Each Pi has a unique static IP** (configured via boot script)
-2. **All Pis have the same repo** with all config files
-3. **Pi auto-detects its IP** and loads the correct config file
-4. **No copying needed** - just edit the config files directly in the repo
+1. **Each Pi has a unique static IP** (configured in `/etc/dhcpcd.conf`)
+2. **All Pis have the same repo** with `main_config.yaml`
+3. **Pi auto-detects its IP** and finds its entry in `main_config.yaml`
+4. **Single source of truth** - All configs centralized in one file
 
-### Config Files in Repo:
+### Config File:
 
 ```
 casm_analog_power_controller/
-├── local_config.pi1.yaml  # Pi at 192.168.1.100 uses this
-├── local_config.pi2.yaml  # Pi at 192.168.1.101 uses this
-└── auto_configure_pi.py   # Helper to show which config to edit
+└── main_config.yaml  # Single config file for all Pis
 ```
 
-### Usage:
+The `main_config.yaml` file contains entries for all Pis:
 
-```bash
-# On any Pi (after cloning the repo)
-python3 auto_configure_pi.py
-
-# Output:
-# ✅ Detected IP address: 192.168.1.100
-# ✅ This Pi should use: local_config.pi1.yaml
-# 📝 To customize switch mappings, edit:
-#    nano local_config.pi1.yaml
+```yaml
+raspberry_pis:
+  pi_1:
+    ip_address: "192.168.1.2"
+    chassis: [1, 2]
+    switch_mapping: {...}
+  pi_2:
+    ip_address: "192.168.1.101"
+    chassis: [3, 4]
+    switch_mapping: {...}
 ```
 
-### IP-to-Config Mapping:
+### How Pi Auto-Configures:
 
-Both `hardware/__init__.py` and `auto_configure_pi.py` have the same mapping:
+**Each Pi automatically finds its configuration:**
 
-```python
-IP_TO_CONFIG = {
-    "192.168.1.100": "local_config.pi1.yaml",  # Pi 1 → Chassis 1 & 2
-    "192.168.1.101": "local_config.pi2.yaml",  # Pi 2 → Chassis 3 & 4
-}
-```
+1. Pi boots up and detects its own static IP address (e.g., `192.168.1.2`)
+2. Pi loads `main_config.yaml` from the repo
+3. Pi searches for the entry with matching `ip_address`
+4. Pi extracts its configuration:
+   - `pi_id` (e.g., `pi_1`)
+   - `num_relay_hats`, `relays_per_hat`
+   - `switch_mapping` (all switch-to-relay mappings)
+5. Pi is fully configured
+
+**Minimal Configuration on Pis** Set static IP and `git pull`.
 
 ### Benefits:
 
-✅ **Same repo on all Pis** - No copying, just edit files in place  
-✅ **Auto-detection** - Pi automatically loads the right config  
-✅ **Version control** - All configs are in git  
-✅ **Easy SD card cloning** - Clone one SD card, works on all Pis  
-✅ **No duplicate files** - One config file per Pi, not per-Pi copies
+✅ **Single config file** - All Pis configured in `main_config.yaml`  
+✅ **Auto-detection** - Pi automatically finds its config by IP  
+✅ **Version control** - Centralized config in git  
+✅ **Easy updates** - Edit `main_config.yaml` and push, Pis auto-configure  
+✅ **No per-Pi files** - One config for all Pis
 
 ---
 
@@ -846,7 +799,7 @@ Docker Container (casm_main_server)
     ├── main_server/ code
     └── main_config.yaml (mounted from host)
     ↓
-Pis via Ethernet (192.168.1.100, 192.168.1.101)
+Pis via Ethernet (192.168.1.2, 192.168.1.101)
 ```
 
 **Data Persistence:**

@@ -27,10 +27,11 @@ MAIN_SERVER_HOST = "localhost"
 MAIN_SERVER_PORT = 5000
 PI_SERVER_PORT = 5001
 
-# Default Pi IPs (will be fetched from main server if needed)
+# Default Pi IPs (fallback only - normally fetched from main server API)
+# These should match main_config.yaml but are only used if main server is unreachable
 PI_IPS = {
     "pi_1": "192.168.1.2",
-    "pi_2": "192.168.1.3"
+    "pi_2": "192.168.1.101"
 }
 
 
