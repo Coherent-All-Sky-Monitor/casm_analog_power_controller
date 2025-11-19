@@ -437,9 +437,9 @@ def create_app():
         pi_url = f"http://{ip}:{port}"
         
         # Validate HAT and relay numbers
-        num_boards = pi_config.get('num_relay_boards', 3)
-        if hat < 0 or hat >= num_boards:
-            return jsonify({'error': f'Invalid HAT number. Must be 0-{num_boards-1}'}), 400
+        num_hats = pi_config.get('num_relay_hats', 3)
+        if hat < 0 or hat >= num_hats:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{num_hats-1}'}), 400
         
         if relay < 1 or relay > 8:
             return jsonify({'error': 'Invalid relay number. Must be 1-8'}), 400
@@ -498,9 +498,9 @@ def create_app():
         pi_url = f"http://{ip}:{port}"
         
         # Validate HAT and relay numbers
-        num_boards = pi_config.get('num_relay_boards', 3)
-        if hat < 0 or hat >= num_boards:
-            return jsonify({'error': f'Invalid HAT number. Must be 0-{num_boards-1}'}), 400
+        num_hats = pi_config.get('num_relay_hats', 3)
+        if hat < 0 or hat >= num_hats:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{num_hats-1}'}), 400
         
         if relay < 1 or relay > 8:
             return jsonify({'error': 'Invalid relay number. Must be 1-8'}), 400

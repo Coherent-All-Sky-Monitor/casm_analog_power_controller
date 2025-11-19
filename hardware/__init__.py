@@ -4,7 +4,7 @@ import yaml
 import os
 from pathlib import Path
 
-# Configuration for RPi with HATs with 8 relays per board.
+# Configuration for RPi with HATs with 8 relays per HAT.
 
 # Load configuration from YAML file
 def get_ip_address():
@@ -41,12 +41,17 @@ def load_config():
     Returns:
         dict: This Pi's configuration section with keys:
             - pi_id: str
-            - num_relay_boards: int
-            - relays_per_board: int
+            - num_relay_hats: int
+            - relays_per_hat: int
             - switch_mapping: dict
             - chassis: list (optional)
             - ip_address: str
             - port: int
+    
+    Raises:
+        FileNotFoundError: If main_config.yaml doesn't exist
+        ValueError: If required fields are missing
+        RuntimeError: If Pi's IP not found in config
     """
     repo_root = Path(__file__).parent.parent
     main_config_path = repo_root / 'main_config.yaml'
@@ -109,7 +114,7 @@ def load_config():
     my_config['pi_id'] = my_pi_id
     
     # Validate required fields
-    required_fields = ['num_relay_boards', 'relays_per_board', 'switch_mapping']
+    required_fields = ['num_relay_hats', 'relays_per_hat', 'switch_mapping']
     missing_fields = [field for field in required_fields if field not in my_config]
     
     if missing_fields:
@@ -117,22 +122,22 @@ def load_config():
             f"\n❌ ERROR: Missing required fields in main_config.yaml for {my_pi_id}\n"
             f"Missing: {missing_fields}\n\n"
             f"Each Pi entry must have:\n"
-            f"  - num_relay_boards: 3\n"
-            f"  - relays_per_board: 8\n"
+            f"  - num_relay_hats: 3\n"
+            f"  - relays_per_hat: 8\n"
             f"  - switch_mapping: {{...}}\n"
         )
     
     print(f"✅ Loaded configuration for {my_pi_id} from main_config.yaml")
     print(f"   - Chassis: {my_config.get('chassis', 'N/A')}")
-    print(f"   - Relay boards: {my_config['num_relay_boards']}")
+    print(f"   - HATs: {my_config['num_relay_hats']}")
     print(f"   - Switch mappings: {len(my_config['switch_mapping'])} switches")
     
     return my_config
 
 # Load configuration from YAML file
 CONFIG = load_config()
-NUM_STACKS = CONFIG['num_relay_boards']
-RELAYS_PER_BOARD = CONFIG['relays_per_board']
+NUM_HATS = CONFIG['num_relay_hats']
+RELAYS_PER_HAT = CONFIG['relays_per_hat']
 PI_ID = CONFIG['pi_id']
 
 # Note: Switch mappings are now centralized in main_config.yaml
@@ -149,7 +154,7 @@ class SwitchMapper:
     The mapping is loaded from main_config.yaml under the 'switch_mapping' key.
     Each entry is: switch_name: {hat: X, relay: Y}
     
-    NOTE: 'hat' in YAML = 'stack' in code (I2C HAT index 0-based)
+    NOTE: 'hat' in YAML is 0-based (I2C HAT index 0-based)
           'relay' in YAML is 1-based (1-8) to match physical hardware labels
     """
     
@@ -189,8 +194,7 @@ class SwitchMapper:
                     f"Got: {position}"
                 )
             
-            # Accept either 'hat' or 'board' (backwards compatibility)
-            hat = position.get('hat', position.get('board'))
+            hat = position.get('hat')
             if hat is None:
                 raise ValueError(
                     f"\n❌ ERROR: Missing 'hat' field for '{switch_name}' in main_config.yaml\n"
@@ -199,14 +203,6 @@ class SwitchMapper:
                 )
             
             relay = position['relay']  # 1-based relay in YAML (matches hardware!)
-            
-            # Validate relay number
-            if relay < 1 or relay > 8:
-                raise ValueError(
-                    f"\n❌ ERROR: Invalid relay number for '{switch_name}'\n"
-                    f"Relay must be 1-8 (got {relay})\n"
-                    f"Use 1-based numbering to match physical hardware labels."
-                )
             
             # Store with uppercase switch names for consistency
             switch_name_upper = switch_name.upper()
@@ -234,18 +230,18 @@ class SwitchMapper:
         """
         return self._switch_to_relay.get(switch_name.upper())
     
-    def get_switch_name(self, stack, relay):
+    def get_switch_name(self, hat, relay):
         """
-        Convert (hat/stack, relay) position to switch name.
+        Convert (hat, relay) position to switch name.
         
         Args:
-            stack: HAT/stack number (0-based)
+            hat: HAT number (0-based)
             relay: Relay number (1-based for hardware)
         
         Returns:
             str: Switch name like 'CH1', 'CH1A', or None if not mapped
         """
-        return self._relay_to_switch.get((stack, relay))
+        return self._relay_to_switch.get((hat, relay))
     
     def get_all_switches(self):
         """Get sorted list of all valid switch names"""
@@ -283,8 +279,8 @@ def create_app():
         return jsonify({
             'status': 'online',
             'pi_id': PI_ID,
-            'num_relay_boards': NUM_STACKS,
-            'relays_per_board': RELAYS_PER_BOARD,
+            'num_relay_hats': NUM_HATS,
+            'relays_per_hat': RELAYS_PER_HAT,
             'total_switches': switch_count,
             'switches': switches
         })
@@ -311,8 +307,8 @@ def create_app():
         if hat is None or relay_num is None or state is None:
             return jsonify({'error': 'Missing required fields: hat, relay, state'}), 400
         
-        if hat < 0 or hat >= NUM_STACKS:
-            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_STACKS-1}'}), 400
+        if hat < 0 or hat >= NUM_HATS:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_HATS-1}'}), 400
         
         if relay_num < 1 or relay_num > 8:
             return jsonify({'error': 'Invalid relay number. Must be 1-8'}), 400
@@ -336,27 +332,27 @@ def create_app():
         except Exception as e:
             return jsonify({'error': f'Failed to set relay state: {str(e)}'}), 500
 
-    @app.route('/api/relay/<int:stack>/<int:relay_num>', methods=['GET'])
-    def get_relay_state(stack, relay_num):
+    @app.route('/api/relay/<int:hat>/<int:relay_num>', methods=['GET'])
+    def get_relay_state(hat, relay_num):
         """Get the state of a specific relay
         
         Args:
-            stack: Stack number (currently 0, will be 0-5 when all boards arrive)
+            hat: HAT number (0-based, e.g., 0, 1, 2)
             relay_num: Relay number (1-8)
         
         Returns:
             JSON with relay state (0 or 1)
         """
-        if stack < 0 or stack >= NUM_STACKS:
-            return jsonify({'error': f'Invalid stack. Must be 0-{NUM_STACKS-1}'}), 400
-        if relay_num < 1 or relay_num > RELAYS_PER_BOARD:
-            return jsonify({'error': f'Invalid relay. Must be 1-{RELAYS_PER_BOARD}'}), 400
+        if hat < 0 or hat >= NUM_HATS:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_HATS-1}'}), 400
+        if relay_num < 1 or relay_num > RELAYS_PER_HAT:
+            return jsonify({'error': f'Invalid relay. Must be 1-{RELAYS_PER_HAT}'}), 400
         
         try:
             # Get relay state from hardware (returns 0 or 1)
-            state = relay.get(stack, relay_num)
+            state = relay.get(hat, relay_num)
             return jsonify({
-                'stack': stack,
+                'hat': hat,
                 'relay': relay_num,
                 'state': state,
                 'status': 'ON' if state == 1 else 'OFF'
@@ -364,12 +360,12 @@ def create_app():
         except Exception as e:
             return jsonify({'error': f'Failed to read relay state: {str(e)}'}), 500
 
-    @app.route('/api/relay/<int:stack>/<int:relay_num>', methods=['POST'])
-    def set_relay_state(stack, relay_num):
+    @app.route('/api/relay/<int:hat>/<int:relay_num>', methods=['POST'])
+    def set_relay_state(hat, relay_num):
         """Set the state of a specific relay
         
         Args:
-            stack: Stack number (currently 0, will be 0-5 when all boards arrive)
+            hat: HAT number (0-based, e.g., 0, 1, 2)
             relay_num: Relay number (1-8)
         
         Body:
@@ -378,10 +374,10 @@ def create_app():
         Returns:
             JSON with updated relay state
         """
-        if stack < 0 or stack >= NUM_STACKS:
-            return jsonify({'error': f'Invalid stack. Must be 0-{NUM_STACKS-1}'}), 400
-        if relay_num < 1 or relay_num > RELAYS_PER_BOARD:
-            return jsonify({'error': f'Invalid relay. Must be 1-{RELAYS_PER_BOARD}'}), 400
+        if hat < 0 or hat >= NUM_HATS:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_HATS-1}'}), 400
+        if relay_num < 1 or relay_num > RELAYS_PER_HAT:
+            return jsonify({'error': f'Invalid relay. Must be 1-{RELAYS_PER_HAT}'}), 400
         
         data = request.get_json()
         if data is None or 'state' not in data:
@@ -393,123 +389,123 @@ def create_app():
         
         try:
             # Set relay state on hardware
-            relay.set(stack, relay_num, new_state)
+            relay.set(hat, relay_num, new_state)
             
             return jsonify({
-                'stack': stack,
+                'hat': hat,
                 'relay': relay_num,
                 'state': new_state,
                 'status': 'ON' if new_state == 1 else 'OFF',
-                'message': f'Stack {stack}, Relay {relay_num} turned {"ON" if new_state == 1 else "OFF"}'
+                'message': f'HAT {hat}, Relay {relay_num} turned {"ON" if new_state == 1 else "OFF"}'
             })
         except Exception as e:
             return jsonify({'error': f'Failed to set relay state: {str(e)}'}), 500
 
     @app.route('/api/relay/all', methods=['GET'])
     def get_all_relays():
-        """Get the state of all relays across all stacks"""
+        """Get the state of all relays across all HATs"""
         all_states = {}
         
-        for stack in range(NUM_STACKS):
+        for hat in range(NUM_HATS):
             try:
                 # Get all 8 relays as bitmap, then convert to list
-                bitmap = relay.get_all(stack)
+                bitmap = relay.get_all(hat)
                 relays = []
-                for relay_num in range(RELAYS_PER_BOARD):
+                for relay_num in range(RELAYS_PER_HAT):
                     # Extract bit for each relay (LSB is relay 1)
                     relays.append((bitmap >> relay_num) & 1)
-                all_states[f'stack_{stack}'] = relays
+                all_states[f'hat_{hat}'] = relays
             except Exception as e:
-                all_states[f'stack_{stack}'] = {'error': str(e)}
+                all_states[f'hat_{hat}'] = {'error': str(e)}
         
         return jsonify(all_states)
 
-    @app.route('/api/relay/stack/<int:stack>', methods=['GET'])
-    def get_stack_state(stack):
-        """Get the state of all relays in a specific stack
+    @app.route('/api/relay/hat/<int:hat>', methods=['GET'])
+    def get_hat_state(hat):
+        """Get the state of all relays in a specific HAT
         
         Args:
-            stack: Stack number (currently 0, will be 0-5 when all boards arrive)
+            hat: HAT number (0-based, e.g., 0, 1, 2)
         """
-        if stack < 0 or stack >= NUM_STACKS:
-            return jsonify({'error': f'Invalid stack. Must be 0-{NUM_STACKS-1}'}), 400
+        if hat < 0 or hat >= NUM_HATS:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_HATS-1}'}), 400
         
         try:
             # Get all 8 relays as bitmap, then convert to list
-            bitmap = relay.get_all(stack)
+            bitmap = relay.get_all(hat)
             relays = []
-            for relay_num in range(RELAYS_PER_BOARD):
+            for relay_num in range(RELAYS_PER_HAT):
                 # Extract bit for each relay (LSB is relay 1)
                 relays.append((bitmap >> relay_num) & 1)
             
             return jsonify({
-                'stack': stack,
+                'hat': hat,
                 'relays': relays
             })
         except Exception as e:
-            return jsonify({'error': f'Failed to read stack state: {str(e)}'}), 500
+            return jsonify({'error': f'Failed to read HAT state: {str(e)}'}), 500
 
-    @app.route('/api/relay/stack/<int:stack>/all-on', methods=['POST'])
-    def turn_on_stack(stack):
-        """Turn on all relays on a specific stack"""
-        if stack < 0 or stack >= NUM_STACKS:
-            return jsonify({'error': f'Invalid stack. Must be 0-{NUM_STACKS-1}'}), 400
+    @app.route('/api/relay/hat/<int:hat>/all-on', methods=['POST'])
+    def turn_on_hat(hat):
+        """Turn on all relays on a specific HAT"""
+        if hat < 0 or hat >= NUM_HATS:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_HATS-1}'}), 400
         
         try:
-            relay.set_all(stack, 255)
+            relay.set_all(hat, 255)
             return jsonify({
-                'stack': stack,
-                'message': f'All relays ON for stack {stack}'
+                'hat': hat,
+                'message': f'All relays ON for HAT {hat}'
             })
         except Exception as e:
-            return jsonify({'error': f'Failed to turn on stack {stack}: {str(e)}'}), 500
+            return jsonify({'error': f'Failed to turn on HAT {hat}: {str(e)}'}), 500
 
-    @app.route('/api/relay/stack/<int:stack>/all-off', methods=['POST'])
-    def turn_off_stack(stack):
-        """Turn off all relays on a specific stack"""
-        if stack < 0 or stack >= NUM_STACKS:
-            return jsonify({'error': f'Invalid stack. Must be 0-{NUM_STACKS-1}'}), 400
+    @app.route('/api/relay/hat/<int:hat>/all-off', methods=['POST'])
+    def turn_off_hat(hat):
+        """Turn off all relays on a specific HAT"""
+        if hat < 0 or hat >= NUM_HATS:
+            return jsonify({'error': f'Invalid HAT number. Must be 0-{NUM_HATS-1}'}), 400
         
         try:
-            relay.set_all(stack, 0)
+            relay.set_all(hat, 0)
             return jsonify({
-                'stack': stack,
-                'message': f'All relays OFF for stack {stack}'
+                'hat': hat,
+                'message': f'All relays OFF for HAT {hat}'
             })
         except Exception as e:
-            return jsonify({'error': f'Failed to turn off stack {stack}: {str(e)}'}), 500
+            return jsonify({'error': f'Failed to turn off HAT {hat}: {str(e)}'}), 500
 
     @app.route('/api/relay/all-on', methods=['POST'])
-    def turn_on_all_stacks():
-        """Turn on all relays across ALL stacks"""
+    def turn_on_all_hats():
+        """Turn on all relays across ALL HATs"""
         results = {}
         
-        for stack in range(NUM_STACKS):
+        for hat in range(NUM_HATS):
             try:
-                relay.set_all(stack, 255)
-                results[f'stack_{stack}'] = 'All relays ON'
+                relay.set_all(hat, 255)
+                results[f'hat_{hat}'] = 'All relays ON'
             except Exception as e:
-                results[f'stack_{stack}'] = f'Error: {str(e)}'
+                results[f'hat_{hat}'] = f'Error: {str(e)}'
         
         return jsonify({
-            'message': 'All ON command sent to all stacks',
+            'message': 'All ON command sent to all HATs',
             'results': results
         })
 
     @app.route('/api/relay/all-off', methods=['POST'])
-    def turn_off_all_stacks():
-        """Turn off all relays across ALL stacks"""
+    def turn_off_all_hats():
+        """Turn off all relays across ALL HATs"""
         results = {}
         
-        for stack in range(NUM_STACKS):
+        for hat in range(NUM_HATS):
             try:
-                relay.set_all(stack, 0)
-                results[f'stack_{stack}'] = 'All relays OFF'
+                relay.set_all(hat, 0)
+                results[f'hat_{hat}'] = 'All relays OFF'
             except Exception as e:
-                results[f'stack_{stack}'] = f'Error: {str(e)}'
+                results[f'hat_{hat}'] = f'Error: {str(e)}'
         
         return jsonify({
-            'message': 'All OFF command sent to all stacks',
+            'message': 'All OFF command sent to all HATs',
             'results': results
         })
 
@@ -532,13 +528,13 @@ def create_app():
                 'valid_switches': switch_mapper.get_all_switches()
             }), 400
         
-        stack, relay_num = position
+        hat, relay_num = position
         
         try:
-            state = relay.get(stack, relay_num)
+            state = relay.get(hat, relay_num)
             return jsonify({
                 'switch_name': switch_name.upper(),
-                'stack': stack,
+                'hat': hat,
                 'relay': relay_num,
                 'state': state,
                 'status': 'ON' if state == 1 else 'OFF'
@@ -566,7 +562,7 @@ def create_app():
                 'valid_switches': switch_mapper.get_all_switches()
             }), 400
         
-        stack, relay_num = position
+        hat, relay_num = position
         
         data = request.get_json()
         if data is None or 'state' not in data:
@@ -577,11 +573,11 @@ def create_app():
             return jsonify({'error': 'State must be 0 (OFF) or 1 (ON)'}), 400
         
         try:
-            relay.set(stack, relay_num, new_state)
+            relay.set(hat, relay_num, new_state)
             
             return jsonify({
                 'switch_name': switch_name.upper(),
-                'stack': stack,
+                'hat': hat,
                 'relay': relay_num,
                 'state': new_state,
                 'status': 'ON' if new_state == 1 else 'OFF',
@@ -598,9 +594,9 @@ def create_app():
         for switch_name in switch_mapper.get_all_switches():
             position = switch_mapper.get_relay_position(switch_name)
             if position:
-                stack, relay_num = position
+                hat, relay_num = position
                 try:
-                    state = relay.get(stack, relay_num)
+                    state = relay.get(hat, relay_num)
                     switches[switch_name] = state  # Just return the state (0 or 1)
                 except Exception as e:
                     switches[switch_name] = 0  # Default to OFF on error
@@ -623,9 +619,9 @@ def create_app():
         # Get chassis switch
         position = switch_mapper.get_relay_position(chassis_name)
         if position:
-            stack, relay_num = position
+            hat, relay_num = position
             try:
-                state = relay.get(stack, relay_num)
+                state = relay.get(hat, relay_num)
                 switches[chassis_name] = {
                     'state': state,
                     'status': 'ON' if state == 1 else 'OFF',
@@ -642,9 +638,9 @@ def create_app():
             switch_name = f'CH{chassis_num}{letter}'
             position = switch_mapper.get_relay_position(switch_name)
             if position:
-                stack, relay_num = position
+                hat, relay_num = position
                 try:
-                    state = relay.get(stack, relay_num)
+                    state = relay.get(hat, relay_num)
                     switches[switch_name] = {
                         'state': state,
                         'status': 'ON' if state == 1 else 'OFF',

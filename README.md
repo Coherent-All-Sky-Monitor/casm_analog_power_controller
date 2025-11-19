@@ -31,9 +31,9 @@ sudo chmod +x /usr/local/bin/capc
 
 # 4 Main Example Workflows:
 ./capc -n CH1A --on              # 1. Main server + switch name (-n tag for name)
-./capc -s 1 -r 7 --on            # 2. Main server + HAT(stack)/relay number (-s tag for stack) (-r tag for relay)
+./capc -s 1 -r 7 --on            # 2. Main server + HAT/relay number (-s tag for HAT) (-r tag for relay)
 ./capc -n CH1A --on -d           # 3. Pi direct + switch name
-./capc -s 1 -r 7 --on -d         # 4. Pi direct + stack/relay number
+./capc -s 1 -r 7 --on -d         # 4. Pi direct + HAT/relay number
 
 # Get info
 ./capc --status                  # System status
@@ -63,7 +63,7 @@ nano main_config.yaml
 
 **What to edit:**
 - **Pi IP addresses** (`ip_address`) - must match static IPs set on Pis
-- **Hardware specs** (`num_relay_boards`, `relays_per_board`) per Pi (default is 3 boards per pi with 8 relays per board)
+- **Hardware specs** (`num_relay_hats`, `relays_per_hat`) per Pi (default is 3 HATs per pi with 8 relays per HAT)
 - **Switch mappings** (`switch_mapping` section) for each Pi
   - Customize `{hat: X, relay: Y}` based on actual wiring
 
@@ -117,7 +117,7 @@ Before deploying to OVRO, coordinate with network administrators:
    # Example output: link/ether dc:a6:32:ab:cd:ef
    ```
 
-3. **Choose Static IPs:** Pick IPs in their subnet (e.g., `10.0.5.100`, `10.0.5.101`)
+3. **Choose Static IPs:** Pick IPs in their subnet specific to OVRO (e.g., `10.0.5.100`, `10.0.5.101`)
 
 4. **Update Pi Static IPs:**
    ```bash
@@ -169,19 +169,11 @@ ssh casm@192.168.2.2  # Pi 1 (or 192.168.2.3 for Pi 2)
 git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
 cd casm_analog_power_controller
 
-# 5. Run setup script (installs dependencies via laptop's shared internet)
-./setup_pi.sh
-
-# The setup script will:
-#   - Check Python version (requires 3.9+)
-#   - Check I2C interface is enabled
-#   - Check internet connectivity (via laptop's shared connection)
-#   - Create isolated Python virtual environment
-#   - Install dependencies from PyPI (using laptop's internet)
-#   - Auto-detect Pi configuration from main_config.yaml
+# 5. Install dependencies (via laptop's shared internet)
+pip3 install -r requirements.txt
 
 # 6. Start the server
-./start_pi_server.sh
+python3 run_hardware.py
 ```
 
 #### Future Updates (Easy!)
@@ -194,20 +186,23 @@ cd casm_analog_power_controller
 # Pull latest changes
 git pull
 
-# Restart server
-./start_pi_server.sh
+# Restart server (Ctrl+C to stop, then restart)
+python3 run_hardware.py
 ```
 
 #### Alternative: SCP Method (if Git or Internet Not Working)
 
 ```bash
-# On laptop: Transfer repo via SCP
-scp -r /Users/lukechung/Desktop/casm_analog_power_controller casm@192.168.2.2:~/
+# On laptop: Transfer repo via SCP (excluding .git directory)
+tar --exclude='.git' -czf casm_analog_power_controller.tar.gz casm_analog_power_controller/
+scp casm_analog_power_controller.tar.gz casm@192.168.2.2:~/
 
-# On Pi: Run setup (requires manual dependency installation)
+# On Pi: Extract and install
 ssh casm@192.168.2.2
+tar -xzf casm_analog_power_controller.tar.gz
 cd casm_analog_power_controller
-./setup_pi.sh
+pip3 install -r requirements.txt
+python3 run_hardware.py
 ```
 
 Pi automatically:
@@ -307,8 +302,8 @@ raspberry_pis:
     port: 5001
     chassis: [1, 2]
     description: "Pi 1 - Chassis 1 & 2"
-    num_relay_boards: 3
-    relays_per_board: 8
+    num_relay_hats: 3
+    relays_per_hat: 8
     
     # All switch mappings for Chassis 1 & 2 (customize based on wiring)
     switch_mapping:
@@ -328,8 +323,8 @@ raspberry_pis:
     port: 5001
     chassis: [3, 4]
     description: "Pi 2 - Chassis 3 & 4"
-    num_relay_boards: 3
-    relays_per_board: 8
+    num_relay_hats: 3
+    relays_per_hat: 8
     
     # All switch mappings for Chassis 3 & 4
     switch_mapping:
@@ -356,7 +351,7 @@ request_timeout: 5
 3. Pi searches for the entry with matching `ip_address`
 4. Pi extracts its configuration:
    - `pi_id` (e.g., `pi_1`)
-   - `num_relay_boards`, `relays_per_board`
+   - `num_relay_hats`, `relays_per_hat`
    - `switch_mapping` (all switch-to-relay mappings)
 5. Pi is fully configured
 
@@ -398,9 +393,9 @@ sudo chmod +x /usr/local/bin/capc
 | Mode | Command | Description |
 |------|---------|-------------|
 | **1** | `capc -n CH1A --on` | Switch name → Main Server |
-| **2** | `capc -s 1 -r 7 --on` | Stack/Relay → Main Server |
+| **2** | `capc -s 1 -r 7 --on` | HAT/Relay → Main Server |
 | **3** | `capc -n CH1A --on -d` | Switch name → Pi Direct |
-| **4** | `capc -s 1 -r 7 --on -d` | Stack/Relay → Pi Direct |
+| **4** | `capc -s 1 -r 7 --on -d` | HAT/Relay → Pi Direct |
 
 **Common Commands:**
 ```bash
@@ -409,9 +404,9 @@ capc -n CH1 --on                # Turn chassis 1 ON (via main server)
 capc -n CH1A --off              # Turn BACboard CH1A OFF
 capc -n CH2 --on -d             # Turn chassis 2 ON (Pi direct)
 
-# Control by hardware location (stack/relay)
-capc -s 1 -r 7 --on             # Stack 1, Relay 7 ON (via main server)
-capc -s 2 -r 3 --off -d         # Stack 2, Relay 3 OFF (Pi direct)
+# Control by hardware location (HAT/relay)
+capc -s 1 -r 7 --on             # HAT 1, Relay 7 ON (via main server)
+capc -s 2 -r 3 --off -d         # HAT 2, Relay 3 OFF (Pi direct)
 
 # Get information
 capc --status                   # Show system status
@@ -536,9 +531,9 @@ echo "Done!"
 - `GET /api/pis` - List all configured Pis
 
 ### Switch Control With Relay Number
-- `POST /api/relay/<stack>/<relay>` - Set relay (`{"state": 0 or 1}`)
-- `GET /api/relay/<stack>/<relay>` - Get relay state
-- `GET /api/relay/stack/<stack>` - Get all relays in stack
+- `POST /api/relay/<hat>/<relay>` - Set relay (`{"state": 0 or 1}`)
+- `GET /api/relay/<hat>/<relay>` - Get relay state
+- `GET /api/relay/hat/<hat>` - Get all relays in HAT
 
 **Switch Names:**
 - Chassis: `CH1`, `CH2`, `CH3`, `CH4`
@@ -574,12 +569,12 @@ status_check_interval: 30
 request_timeout: 5
 ```
 
-**Pi #1 config (`local_config.yaml`):**
+**Pi #1 config (`main_config.yaml`):**
 ```yaml
 pi_id: "pi_1"
-chassis_controlled: [1, 2]
-num_relay_boards: 3
-relays_per_board: 8
+chassis: [1, 2]
+num_relay_hats: 3
+relays_per_hat: 8
 
 # Example switch mapping (customize for your wiring!)
 switch_mapping:
@@ -589,12 +584,12 @@ switch_mapping:
   # ... add all switches for chassis 1 & 2
 ```
 
-**Pi #2 config (`local_config.yaml`):**
+**Pi #2 config (`main_config.yaml`):**
 ```yaml
 pi_id: "pi_2"
-chassis_controlled: [3, 4]
-num_relay_boards: 3
-relays_per_board: 8
+chassis: [3, 4]
+num_relay_hats: 3
+relays_per_hat: 8
 
 switch_mapping:
   CH3: {hat: 0, relay: 0}
@@ -761,7 +756,7 @@ IP_TO_CONFIG = {
 - **Username consistency**: Both Pis should use username `casm` (not default `pi`) for easier management
 - **Check status** before experiments
 - **Configs must match** between main server and Pis
-- **Stack numbers are local** on each Pi (always start at 0)
+- **HAT numbers are local** on each Pi (always start at 0)
 - **Each chassis** can only be controlled by ONE Pi
 
 ### Setting Up Username on Second Pi

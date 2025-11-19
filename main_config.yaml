@@ -8,8 +8,8 @@ raspberry_pis:
     port: 5001
     chassis: [1, 2]
     description: "Pi 1 - Chassis 1 & 2"
-    num_relay_boards: 3
-    relays_per_board: 8
+    num_relay_hats: 3
+    relays_per_hat: 8
     
     # Switch mappings for Chassis 1 & 2 (customize based on actual wiring!)
     switch_mapping:
@@ -47,8 +47,8 @@ raspberry_pis:
     port: 5001
     chassis: [3, 4]
     description: "Pi 2 - Chassis 3 & 4"
-    num_relay_boards: 3
-    relays_per_board: 8
+    num_relay_hats: 3
+    relays_per_hat: 8
     
     # Switch mappings for Chassis 3 & 4 (customize based on actual wiring!)
     switch_mapping:
