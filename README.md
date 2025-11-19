@@ -80,7 +80,7 @@ git push origin main
 
 > **Note:** The Pis use username `casm` (not the default `pi`). Make sure both Pis have the same username for consistency.
 
-> **Important:** Pis have WiFi/Bluetooth hardware **disabled** to prevent Radio Frequency Interference (RFI) with the radio telescope. Internet is provided by sharing your laptop's WiFi through the Ethernet cable during setup.
+> **Important:** Pis have WiFi/Bluetooth hardware **disabled** to prevent Radio Frequency Interference (RFI) with the radio telescope. WiFi is temporarily enabled ONLY for initial setup (to install dependencies), then hardware-disabled via `config.txt` before deployment.
 
 #### Static IP Configuration
 
@@ -94,8 +94,8 @@ git push origin main
 # On each Pi, edit network config:
 sudo nano /etc/dhcpcd.conf
 
-# Add at the end:
-interface eth0
+# Add at the end (use 'end0' for RPi 5, 'eth0' for older models):
+interface end0
 static ip_address=192.168.2.2/24  # Use .3 for Pi 2
 static routers=192.168.2.1
 static domain_name_servers=8.8.8.8 8.8.4.4
@@ -112,8 +112,8 @@ Before deploying to OVRO, coordinate with network administrators:
 
 2. **Get Pi MAC Addresses:**
    ```bash
-   # On each Pi:
-   ip link show eth0 | grep ether
+   # On each Pi (use 'end0' for RPi 5, 'eth0' for older models):
+   ip link show end0 | grep ether
    # Example output: link/ether dc:a6:32:ab:cd:ef
    ```
 
@@ -121,8 +121,8 @@ Before deploying to OVRO, coordinate with network administrators:
 
 4. **Update Pi Static IPs:**
    ```bash
-   # On each Pi, edit /etc/dhcpcd.conf:
-   interface eth0
+   # On each Pi, edit /etc/dhcpcd.conf (use 'end0' for RPi 5, 'eth0' for older):
+   interface end0
    static ip_address=10.0.5.100/24  # Or .101 for Pi 2
    static routers=10.0.5.1  # Gateway provided by OVRO
    static domain_name_servers=8.8.8.8 8.8.4.4
@@ -157,55 +157,88 @@ Before deploying to OVRO, coordinate with network administrators:
 
 #### Initial Setup (ONE TIME per Pi)
 
-```bash
-# 1. Connect Pi to laptop via Ethernet cable
-# 2. Enable Internet Sharing on Mac:
-#    System Settings → Sharing → Internet Sharing
-#    Share: Wi-Fi, To: Ethernet (or USB adapter)
-# 3. SSH to Pi
-ssh casm@192.168.2.2  # Pi 1 (or 192.168.2.3 for Pi 2)
+**Workflow:** Pi needs temporary internet for setup, then WiFi/Bluetooth are disabled to prevent RFI.
 
-# 4. Clone repository
+```bash
+# 1. Temporarily enable WiFi on Pi to download dependencies
+#    (Can be disabled after installation)
+#    Connect Pi to WiFi network temporarily
+
+# 2. SSH to Pi (via WiFi or Ethernet)
+ssh casm@<pi-ip>
+
+# 3. Clone repository
 git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
 cd casm_analog_power_controller
 
-# 5. Install dependencies (via laptop's shared internet)
+# 4. Create virtual environment (optional but recommended)
+python3 -m venv venv
+source venv/bin/activate
+
+# 5. Install dependencies (requires internet)
 pip3 install -r requirements.txt
 
-# 6. Start the server
+# 6. Disable WiFi and Bluetooth (REQUIRED for RFI prevention)
+sudo nano /boot/firmware/config.txt
+# Add these lines at the end:
+#   dtoverlay=disable-wifi
+#   dtoverlay=disable-bt
+# Save and reboot: sudo reboot
+
+# 7. After reboot, connect via Ethernet and start the server
+ssh casm@192.168.2.2  # Use static IP from Step 2
+cd casm_analog_power_controller
+source venv/bin/activate  # If using venv
 python3 run_hardware.py
 ```
 
-#### Future Updates (Easy!)
+**Summary:**
+1. ✅ Pi starts with internet (WiFi enabled temporarily)
+2. ✅ Clone repo and install dependencies in virtual environment
+3. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
+4. ✅ Connect via Ethernet (static IP) and run code
+
+#### Future Updates
+
+**Option A: Git Pull (requires internet over Ethernet)**
+
+If you have internet sharing enabled from laptop to Pi via Ethernet:
 
 ```bash
-# SSH to Pi
+# SSH to Pi via Ethernet
 ssh casm@192.168.2.2
 cd casm_analog_power_controller
+source venv/bin/activate  # If using venv
 
-# Pull latest changes
+# Pull latest changes (via laptop's shared internet)
 git pull
 
 # Restart server (Ctrl+C to stop, then restart)
 python3 run_hardware.py
 ```
 
-#### Alternative: SCP Method (if Git or Internet Not Working)
+**Option B: SCP Transfer (no internet needed)**
+
+Transfer updated files from laptop:
 
 ```bash
-# On laptop: Transfer repo via SCP (excluding .git directory)
-tar --exclude='.git' -czf casm_analog_power_controller.tar.gz casm_analog_power_controller/
-scp casm_analog_power_controller.tar.gz casm@192.168.2.2:~/
+# On laptop: Transfer updated files
+cd ~/Desktop/casm_analog_power_controller
+tar --exclude='.git' --exclude='venv' --exclude='__pycache__' \
+    -czf casm_update.tar.gz .
+scp casm_update.tar.gz casm@192.168.2.2:~/casm_analog_power_controller/
 
-# On Pi: Extract and install
+# On Pi: Extract and restart
 ssh casm@192.168.2.2
-tar -xzf casm_analog_power_controller.tar.gz
 cd casm_analog_power_controller
-pip3 install -r requirements.txt
+tar -xzf casm_update.tar.gz
+source venv/bin/activate  # If using venv
 python3 run_hardware.py
 ```
 
-Pi automatically:
+**Pi Auto-Configuration:**
+
+The Pi automatically:
 - Detects its IP address
 - Finds its section in `main_config.yaml`
 - Loads hardware specs and switch mappings
