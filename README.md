@@ -241,13 +241,13 @@ Before deploying to OVRO, coordinate with network administrators:
 ```bash
 # 1. Connect Pi to WiFi network and configure static IP
 #    See "Static IP Configuration" section above
-#    Pi 1: 192.168.1.2, Pi 2: 192.168.1.101
+#    Pi 1: 192.168.1.2, Pi 2: 192.168.1.3
 
 # 2. Connect your computer to the same WiFi network
 #    This allows SSH and SCP/clone access
 
 # 3. SSH to Pi (via WiFi static IP)
-ssh casm@192.168.1.2  # Pi 1 (or 192.168.1.101 for Pi 2)
+ssh casm@192.168.1.2  # Pi 1 (or 192.168.1.3 for Pi 2)
 
 # 4. Clone repository (WiFi provides internet access)
 git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
@@ -278,7 +278,7 @@ python3 run_hardware.py
 ```
 
 **Summary:**
-1. ✅ Pi connects to WiFi with static IP (192.168.1.2 or 192.168.1.101)
+1. ✅ Pi connects to WiFi with static IP (192.168.1.2 or 192.168.1.3)
 2. ✅ Computer connects to same WiFi for SSH/SCP access
 3. ✅ Clone repo and install dependencies (WiFi provides internet)
 4. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
@@ -298,7 +298,7 @@ tar --exclude='.git' --exclude='casmpower' --exclude='__pycache__' \
 scp casm_update.tar.gz casm@192.168.1.2:~/casm_analog_power_controller/
 
 # On Pi: Extract and restart
-ssh casm@192.168.1.2  # Or 192.168.1.101 for Pi 2
+ssh casm@192.168.1.2  # Or 192.168.1.3 for Pi 2
 cd casm_analog_power_controller
 tar -xzf casm_update.tar.gz
 source casmpower/bin/activate  # If using casmpower
@@ -444,7 +444,7 @@ raspberry_pis:
       # ... CH2B through CH2K (relays 7-8 on HAT 1, then 1-8 on HAT 2)
   
   pi_2:
-    ip_address: "192.168.1.101"
+    ip_address: "192.168.1.3"
     port: 5001
     chassis: [3, 4]
     description: "Pi 2 - Chassis 3 & 4"
@@ -685,7 +685,7 @@ raspberry_pis:
     description: "Pi 1 - Chassis 1 & 2"
   
   pi_2:
-    ip_address: "192.168.1.101"
+    ip_address: "192.168.1.3"
     port: 5001
     chassis: [3, 4]
     description: "Pi 2 - Chassis 3 & 4"
@@ -763,7 +763,7 @@ raspberry_pis:
     chassis: [1, 2]
     switch_mapping: {...}
   pi_2:
-    ip_address: "192.168.1.101"
+    ip_address: "192.168.1.3"
     chassis: [3, 4]
     switch_mapping: {...}
 ```
@@ -820,7 +820,7 @@ If your second Pi still uses the default `pi` username, change it to `casm`:
 
 ```bash
 # SSH to the second Pi
-ssh pi@192.168.1.101  # or whatever the current username is
+ssh pi@192.168.1.3  # or whatever the current username is
 
 # Create new user 'casm'
 sudo adduser casm
@@ -835,7 +835,7 @@ sudo chown -R casm:casm /home/casm/.ssh
 
 # Test new user works
 exit
-ssh casm@192.168.1.101
+ssh casm@192.168.1.3
 
 # Once confirmed working, optionally delete old 'pi' user
 sudo deluser --remove-home pi
@@ -868,7 +868,7 @@ Docker Container (casm_main_server)
     ├── main_server/ code
     └── main_config.yaml (mounted from host)
     ↓
-Pis via Ethernet (192.168.1.2, 192.168.1.101)
+Pis via Ethernet (192.168.1.2, 192.168.1.3)
 ```
 
 **Data Persistence:**

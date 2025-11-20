@@ -31,7 +31,7 @@ PI_SERVER_PORT = 5001
 # These should match main_config.yaml but are only used if main server is unreachable
 PI_IPS = {
     "pi_1": "192.168.1.2",
-    "pi_2": "192.168.1.101"
+    "pi_2": "192.168.1.3"
 }
 
 
