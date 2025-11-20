@@ -47,7 +47,7 @@ sudo chmod +x /usr/local/bin/capc
 
 ---
 
-## SETUP: After Configuration of RPIs Including Static IPs, Disabling Bluetooth/WIFI, Username, Hardware Watchdog, etc.
+## SETUP:
 
 ### Step 1: Edit `main_config.yaml`
 
@@ -80,31 +80,94 @@ git push origin main
 
 > **Note:** The Pis use username `casm` (not the default `pi`). Make sure both Pis have the same username for consistency.
 
-> **Important:** Pis have WiFi/Bluetooth hardware **disabled** to prevent Radio Frequency Interference (RFI) with the radio telescope. WiFi is temporarily enabled ONLY for initial setup (to install dependencies), then hardware-disabled via `config.txt` before deployment.
+> **Important:** Pis have WiFi/Bluetooth hardware **disabled** to prevent Radio Frequency Interference (RFI) with the radio telescope. WiFi is temporarily enabled ONLY for initial setup (to install dependencies), then disabled via sudo nano /boot/firmware/config.txt, dtoverlay=disable-wifi, dtoverlay=disable-bt, before deployment.
 
 #### Static IP Configuration
 
 **Development Setup:**
 - Pi connects to WiFi network
-- Configure static IPs on Pi WiFi interface to match `main_config.yaml`
-- Your computer also connects to same WiFi network to SCP/clone repo
-- Pi 1: `192.168.1.2` (as defined in `main_config.yaml`)
-- Pi 2: `192.168.1.101` (as defined in `main_config.yaml`)
+- Configure static IPs on Pi
+- For SCP: Connect to Pi with ethernet cable and set IP address on computer to be on same subnet as Pi
+- To ssh into Pi, need computer and Pi to be on same WiFi network or connected via ethernet cable with same subnet
 
-**Configure Static IPs on Pi WiFi:**
+**Configure Static IPs on Pi on Boot (RPi 5 using systemd):**
+
 ```bash
-# On each Pi, edit network config:
-sudo nano /etc/dhcpcd.conf
+# Step 1: Create boot script
+sudo nano /usr/local/bin/set_static_ip_nm.sh
 
-# Add at the end (for WiFi interface):
-interface wlan0
-static ip_address=192.168.1.2/24  # Use 192.168.1.101 for Pi 2
-static routers=192.168.1.1  # Your WiFi router IP
-static domain_name_servers=8.8.8.8 8.8.4.4
+# Paste this script and save (Ctrl+O, then Enter, then Ctrl+X):
+#!/bin/bash
+# Force static IP on Raspberry Pi 5 (Bookworm) Ethernet interface, every boot
+# Configure IP settings to match your network subnet
 
-# Save and reboot
+# Ethernet interface on RPi 5
+INTERFACE="end0"
+
+# Configure IP settings to match your network subnet
+# Development: Use your local subnet (e.g., 192.168.1.x)
+# Production (OVRO): REPLACE with subnet provided by network admins
+IP_ADDRESS="192.168.1.2/24"  # REPLACE: Your chosen static IP (e.g., 192.168.1.3 for Pi 2, or OVRO subnet IP)
+NETWORK="192.168.1.0/24"     # REPLACE: Match your subnet (change for OVRO subnet)
+GATEWAY="192.168.1.1"        # REPLACE: Your router/gateway IP (change for OVRO gateway)
+
+sleep 2
+
+# Bring up interface even if no cable is connected
+ip link set "$INTERFACE" up
+
+# Remove any DHCP or old addresses
+ip addr flush dev "$INTERFACE"
+
+# Assign static IP
+ip addr add "$IP_ADDRESS" dev "$INTERFACE"
+
+# Add local route
+ip route add "$NETWORK" dev "$INTERFACE"
+
+# Add default route
+ip route add default via "$GATEWAY"
+
+echo "Static IP $IP_ADDRESS assigned to $INTERFACE"
+
+# Step 2: Make script executable
+sudo chmod +x /usr/local/bin/set_static_ip_nm.sh
+
+# Step 3: Create systemd service
+sudo nano /etc/systemd/system/set-static-ip.service
+
+# Paste this service configuration:
+[Unit]
+Description=Applies static IP on boot through network manager compatible with RPI 5
+After=network-pre.target
+Before=NetworkManager.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/set_static_ip_nm.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
+# Step 4: Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable set-static-ip.service
+sudo systemctl start set-static-ip.service
+
+# Step 5: Reboot and verify
 sudo reboot
+
+# After reboot, check IP:
+hostname -I
 ```
+
+**Important Notes:**
+- **Ethernet cable must be plugged in:** The static IP is configured on `end0` (Ethernet), so Ethernet cable must be connected for the Pi to be reachable
+- **Static IP persists:** Once configured, the Pi will ALWAYS use this IP address whenever Ethernet is connected (even after reboots)
+- **IP addresses must match `main_config.yaml`**
+- **WiFi is disabled after installing dependencies**
 
 **Configure Your Computer:**
 - Connect your laptop/computer to the same WiFi network
@@ -114,7 +177,7 @@ sudo reboot
 
 Before deploying to OVRO, coordinate with network administrators:
 
-1. **Determine IP Subnet:** Ask what subnet to use (e.g., `10.0.5.x`)
+1. **Determine IP Subnet:** Ask what subnet to use (provided by OVRO network admins)
 
 2. **Get Pi MAC Addresses:**
    ```bash
@@ -123,51 +186,57 @@ Before deploying to OVRO, coordinate with network administrators:
    # Example output: link/ether dc:a6:32:ab:cd:ef
    ```
 
-3. **Choose Static IPs:** Pick IPs in their subnet specific to OVRO (e.g., `10.0.5.100`, `10.0.5.101`)
+3. **Choose Static IPs:** Pick IPs in the OVRO subnet (provided by network admins)
 
 4. **Update Pi Static IPs:**
    ```bash
-   # On each Pi, edit /etc/dhcpcd.conf (use 'end0' for RPi 5, 'eth0' for older):
-   interface end0
-   static ip_address=10.0.5.100/24  # Or .101 for Pi 2
-   static routers=10.0.5.1  # Gateway provided by OVRO
-   static domain_name_servers=8.8.8.8 8.8.4.4
+   # Edit the boot script created earlier:
+   sudo nano /usr/local/bin/set_static_ip_nm.sh
+   
+   # Update with OVRO network settings (subnet provided by network admins):
+   INTERFACE="end0"            # Ethernet interface on RPi 5
+   IP_ADDRESS="X.X.X.X/24"     # REPLACE: OVRO subnet IP (change for OVRO subnet)
+   NETWORK="X.X.X.0/24"        # REPLACE: OVRO subnet (change for OVRO subnet)
+   GATEWAY="X.X.X.1"           # REPLACE: OVRO gateway (change for OVRO gateway)
+   
+   # Restart the service to apply:
+   sudo systemctl restart set-static-ip.service
+   
+   # Verify:
+   hostname -I
    ```
+   
+   **Important:** The IP addresses you choose here must match what's in `main_config.yaml` on the main server, and must match what you request for DHCP reservations
 
-5. **Request DHCP Reservations (CRITICAL):**
+5. **Request DHCP Reservations:**
    
-   Email OVRO network admins:
-   ```
-   Subject: DHCP Reservation Request for CASM Raspberry Pis
-   
-   Please configure DHCP reservations to prevent IP conflicts:
+   Configure DHCP reservations to prevent IP conflicts:
    
    - Pi 1:
-     MAC Address: dc:a6:32:ab:cd:ef
-     Reserved IP: 10.0.5.100
+     MAC Address: <pi1-mac-address>
+     Reserved IP: <pi1-chosen-ip>
      Hostname: casm-pi1
    
    - Pi 2:
-     MAC Address: aa:bb:cc:dd:ee:ff
-     Reserved IP: 10.0.5.101
+     MAC Address: <pi2-mac-address>
+     Reserved IP: <pi2-chosen-ip>
      Hostname: casm-pi2
    
-   This ensures the Pis maintain consistent IPs for our auto-configuration system.
+   This ensures the DHCP server assigns the same IP as the static IP set on the Pi based on its MAC address.
    ```
 
 **Why Both Static IP + DHCP Reservation?**
 - **Redundancy:** If DHCP fails, Pi keeps its IP
 - **No Conflicts:** DHCP won't assign these IPs to other devices
-- **Standard Practice:** Industry-standard approach for critical infrastructure
 - **Auto-Configuration:** Pis identify themselves via IP in `main_config.yaml`
 
 #### Initial Setup (ONE TIME per Pi)
 
 **Workflow:** 
-1. Pi connects to WiFi with static IP
+1. Pi connects to WiFi and static IP is set
 2. Clone repo and install dependencies (WiFi provides internet)
 3. Disable WiFi/Bluetooth hardware to prevent RFI
-4. Connect via Ethernet (static IP) and run code
+4. Connect via Ethernet and run code
 
 ```bash
 # 1. Connect Pi to WiFi network and configure static IP
@@ -184,9 +253,9 @@ ssh casm@192.168.1.2  # Pi 1 (or 192.168.1.101 for Pi 2)
 git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
 cd casm_analog_power_controller
 
-# 5. Create virtual environment (optional but recommended)
-python3 -m venv venv
-source venv/bin/activate
+# 5. Create virtual environment
+python3 -m venv casmpower
+source casmpower/bin/activate
 
 # 6. Install dependencies (via WiFi internet)
 pip3 install -r requirements.txt
@@ -204,7 +273,7 @@ sudo nano /boot/firmware/config.txt
 #    Note: You may need to configure Ethernet static IP separately if using Ethernet for runtime
 ssh casm@192.168.1.2  # Use static IP configured in main_config.yaml
 cd casm_analog_power_controller
-source venv/bin/activate  # If using venv
+source casmpower/bin/activate  # If using casmpower
 python3 run_hardware.py
 ```
 
@@ -222,9 +291,9 @@ python3 run_hardware.py
 Transfer updated files from laptop via Ethernet:
 
 ```bash
-# On laptop: Transfer updated files (exclude .git, venv, etc.)
+# On laptop: Transfer updated files (exclude .git, casmpower, etc.)
 cd ~/Desktop/casm_analog_power_controller
-tar --exclude='.git' --exclude='venv' --exclude='__pycache__' \
+tar --exclude='.git' --exclude='casmpower' --exclude='__pycache__' \
     -czf casm_update.tar.gz .
 scp casm_update.tar.gz casm@192.168.1.2:~/casm_analog_power_controller/
 
@@ -232,7 +301,7 @@ scp casm_update.tar.gz casm@192.168.1.2:~/casm_analog_power_controller/
 ssh casm@192.168.1.2  # Or 192.168.1.101 for Pi 2
 cd casm_analog_power_controller
 tar -xzf casm_update.tar.gz
-source venv/bin/activate  # If using venv
+source casmpower/bin/activate  # If using casmpower
 python3 run_hardware.py
 ```
 
@@ -246,7 +315,7 @@ Only if you need to update dependencies:
 # 3. SSH via WiFi static IP
 ssh casm@192.168.1.2
 cd casm_analog_power_controller
-source venv/bin/activate
+source casmpower/bin/activate
 
 # Pull latest changes (WiFi provides internet)
 git pull

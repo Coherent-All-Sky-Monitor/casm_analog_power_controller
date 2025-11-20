@@ -211,6 +211,7 @@ __marimo__/
 # ===================================================================
 
 # Virtual environment folders (any name)
+casmpower/
 casm_power/
 venv/
 env/
