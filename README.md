@@ -233,9 +233,10 @@ Before deploying to OVRO, coordinate with network administrators:
 
 **Workflow:** 
 1. Pi connects to WiFi and static IP is set
-2. Clone repo and install dependencies (WiFi provides internet)
-3. Disable WiFi/Bluetooth hardware to prevent RFI
-4. Connect via Ethernet and run code
+2. Enable I2C interface (required for HAT communication)
+3. Clone repo and install dependencies (WiFi provides internet)
+4. Disable WiFi/Bluetooth hardware to prevent RFI
+5. Connect via Ethernet and run code
 
 ```bash
 # 1. Connect Pi to WiFi network and configure static IP
@@ -248,25 +249,31 @@ Before deploying to OVRO, coordinate with network administrators:
 # 3. SSH to Pi (via WiFi static IP)
 ssh casm@192.168.1.2  # Pi 1 (or 192.168.1.3 for Pi 2)
 
-# 4. Clone repository (WiFi provides internet access)
+# 4. Enable I2C interface (REQUIRED for HAT communication)
+sudo raspi-config
+# Navigate to: Interface Options → I2C → Enable
+# Or use command line: sudo raspi-config nonint do_i2c 0
+# Exit raspi-config (no reboot needed yet)
+
+# 5. Clone repository (WiFi provides internet access)
 git clone https://github.com/Coherent-All-Sky-Monitor/casm_analog_power_controller.git
 cd casm_analog_power_controller
 
-# 5. Create virtual environment
+# 6. Create virtual environment
 python3 -m venv casmpower
 source casmpower/bin/activate
 
-# 6. Install dependencies (via WiFi internet)
+# 7. Install dependencies (via WiFi internet)
 pip3 install -r requirements.txt
 
-# 7. Disable WiFi and Bluetooth (REQUIRED for RFI prevention)
+# 8. Disable WiFi and Bluetooth (REQUIRED for RFI prevention)
 sudo nano /boot/firmware/config.txt
 # Add these lines at the end:
 #   dtoverlay=disable-wifi
 #   dtoverlay=disable-bt
 # Save and reboot: sudo reboot
 
-# 8. After reboot, Pi WiFi/Bluetooth are disabled
+# 9. After reboot, Pi WiFi/Bluetooth are disabled
 #    Configure Ethernet static IP (if not already configured)
 #    SSH via Ethernet static IP and start server
 ssh casm@192.168.1.2  # Use static IP configured in main_config.yaml
@@ -276,11 +283,12 @@ python3 run_pi_server.py
 ```
 
 **Summary:**
-1. ✅ Pi connects to WiFi/ethernet with static IP (ex: 192.168.1.2 or 192.168.1.3 )
+1. ✅ Pi connects to WiFi/ethernet with static IP (ex: 192.168.1.2 or 192.168.1.3)
 2. ✅ Computer connects to same WiFi/ethernet for SSH access
-3. ✅ Clone repo and install dependencies
-4. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
-5. ✅ Connect via Ethernet and run code
+3. ✅ Enable I2C interface (required for HAT communication)
+4. ✅ Clone repo and install dependencies
+5. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
+6. ✅ Connect via Ethernet and run code
 
 **Pi Auto-Configuration:**
 
@@ -768,13 +776,13 @@ raspberry_pis:
 - **HAT numbers are local** on each Pi (always start at 0)
 - **Each chassis** can only be controlled by ONE Pi
 
-### Setting Up Username on Second Pi
+### Setting Up Username on Raspberry Pi
 
-If your second Pi still uses the default `pi` username, change it to `casm`:
+If your Pi uses the default `pi` username, change it to `casm` for consistency:
 
 ```bash
-# SSH to the second Pi
-ssh pi@192.168.1.3  # or whatever the current username is
+# SSH to the Pi
+ssh pi@<pi-ip-address>  # Use current username and IP
 
 # Create new user 'casm'
 sudo adduser casm
@@ -789,11 +797,13 @@ sudo chown -R casm:casm /home/casm/.ssh
 
 # Test new user works
 exit
-ssh casm@192.168.1.3
+ssh casm@<pi-ip-address>
 
 # Once confirmed working, optionally delete old 'pi' user
 sudo deluser --remove-home pi
 ```
+
+**Why `casm` username?** Consistent username across all Pis makes management easier and matches the project name.
 
 ---
 
