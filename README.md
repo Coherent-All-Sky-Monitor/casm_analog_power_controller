@@ -274,7 +274,7 @@ sudo nano /boot/firmware/config.txt
 ssh casm@192.168.1.2  # Use static IP configured in main_config.yaml
 cd casm_analog_power_controller
 source casmpower/bin/activate  # If using casmpower
-python3 run_hardware.py
+python3 run_pi_server.py
 ```
 
 **Summary:**
@@ -302,7 +302,7 @@ ssh casm@192.168.1.2  # Or 192.168.1.3 for Pi 2
 cd casm_analog_power_controller
 tar -xzf casm_update.tar.gz
 source casmpower/bin/activate  # If using casmpower
-python3 run_hardware.py
+python3 run_pi_server.py
 ```
 
 **Option B: Git Clone/Pull (requires WiFi re-enabled)**
