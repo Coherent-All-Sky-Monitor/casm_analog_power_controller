@@ -87,8 +87,7 @@ git push origin main
 **Development Setup:**
 - Pi connects to WiFi network
 - Configure static IPs on Pi
-- For SCP: Connect to Pi with ethernet cable and set IP address on computer to be on same subnet as Pi
-- To ssh into Pi, need computer and Pi to be on same WiFi network or connected via ethernet cable with same subnet
+- To SSH into Pi: Computer and Pi must be on same WiFi network (or connected via Ethernet with compatible subnet) or connected via ethernet cable with same subnet
 
 **Configure Static IPs on Pi on Boot (RPi 5 using systemd):**
 
@@ -171,7 +170,7 @@ hostname -I
 
 **Configure Your Computer:**
 - Connect your laptop/computer to the same WiFi network
-- This allows you to SSH and SCP/clone the repo to the Pi
+- This allows you to SSH and git clone the repo on the Pi
 
 **Production (OVRO) - IMPORTANT:**
 
@@ -244,7 +243,7 @@ Before deploying to OVRO, coordinate with network administrators:
 #    Pi 1: 192.168.1.2, Pi 2: 192.168.1.3
 
 # 2. Connect your computer to the same WiFi network
-#    This allows SSH and SCP/clone access
+#    This allows SSH and git clone access
 
 # 3. SSH to Pi (via WiFi static IP)
 ssh casm@192.168.1.2  # Pi 1 (or 192.168.1.3 for Pi 2)
@@ -270,7 +269,6 @@ sudo nano /boot/firmware/config.txt
 # 8. After reboot, Pi WiFi/Bluetooth are disabled
 #    Configure Ethernet static IP (if not already configured)
 #    SSH via Ethernet static IP and start server
-#    Note: You may need to configure Ethernet static IP separately if using Ethernet for runtime
 ssh casm@192.168.1.2  # Use static IP configured in main_config.yaml
 cd casm_analog_power_controller
 source casmpower/bin/activate  # If using casmpower
@@ -278,55 +276,11 @@ python3 run_pi_server.py
 ```
 
 **Summary:**
-1. ✅ Pi connects to WiFi with static IP (192.168.1.2 or 192.168.1.3)
-2. ✅ Computer connects to same WiFi for SSH/SCP access
-3. ✅ Clone repo and install dependencies (WiFi provides internet)
+1. ✅ Pi connects to WiFi/ethernet with static IP (ex: 192.168.1.2 or 192.168.1.3 )
+2. ✅ Computer connects to same WiFi/ethernet for SSH access
+3. ✅ Clone repo and install dependencies
 4. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
 5. ✅ Connect via Ethernet and run code
-
-#### Future Updates
-
-**Option A: SCP Transfer (Recommended - no internet needed)**
-
-Transfer updated files from laptop via Ethernet:
-
-```bash
-# On laptop: Transfer updated files (exclude .git, casmpower, etc.)
-cd ~/Desktop/casm_analog_power_controller
-tar --exclude='.git' --exclude='casmpower' --exclude='__pycache__' \
-    -czf casm_update.tar.gz .
-scp casm_update.tar.gz casm@192.168.1.2:~/casm_analog_power_controller/
-
-# On Pi: Extract and restart
-ssh casm@192.168.1.2  # Or 192.168.1.3 for Pi 2
-cd casm_analog_power_controller
-tar -xzf casm_update.tar.gz
-source casmpower/bin/activate  # If using casmpower
-python3 run_pi_server.py
-```
-
-**Option B: Git Clone/Pull (requires WiFi re-enabled)**
-
-Only if you need to update dependencies:
-
-```bash
-# 1. Temporarily enable WiFi on Pi (remove disable overlays in config.txt)
-# 2. Connect Pi to WiFi
-# 3. SSH via WiFi static IP
-ssh casm@192.168.1.2
-cd casm_analog_power_controller
-source casmpower/bin/activate
-
-# Pull latest changes (WiFi provides internet)
-git pull
-
-# Reinstall dependencies if requirements.txt changed
-pip3 install -r requirements.txt
-
-# Disable WiFi again and reboot
-# Edit /boot/firmware/config.txt to re-enable disable overlays
-sudo reboot
-```
 
 **Pi Auto-Configuration:**
 
@@ -912,7 +866,7 @@ casm_analog_power_controller/
 ├── .dockerignore          # Docker build exclusions
 ├── hardware/              # Pi server code (runs natively on Pis)
 ├── main_server/           # Main coordinator code (runs in Docker)
-├── simulation/            # Simulator (no hardware needed)
+├── simulation/            # Simulator of relay switch
 ├── run_pi_server.py       # Start Pi server (on Pis)
 ├── run_main_server.py     # Start main server (in Docker container)
 ├── run_simulation.py      # Start simulator
