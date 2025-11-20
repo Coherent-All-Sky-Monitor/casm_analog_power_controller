@@ -539,7 +539,9 @@ def create_app():
             )
             
             if status_code == 200 and isinstance(response, dict):
-                all_switches.update(response)
+                # Extract switches from Pi response (response format: {"switches": {...}})
+                pi_switches = response.get('switches', {})
+                all_switches.update(pi_switches)
             else:
                 errors.append({
                     'pi_url': pi_url,
