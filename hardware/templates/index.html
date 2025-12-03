@@ -52,8 +52,8 @@ curl http://localhost:5001/api/switch/list</code></pre>
             </div>
 
             <div class="example-section">
-                <h3>Legacy API (by stack/relay number)</h3>
-                <pre><code># Still supported for backward compatibility
+                <h3>Direct Relay Control (by HAT/relay number)</h3>
+                <pre><code># Control relay directly by hardware position
 curl -X POST http://localhost:5001/api/relay/0/1 \
   -H "Content-Type: application/json" \
   -d '{"state": 1}'</code></pre>

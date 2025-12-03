@@ -33,7 +33,7 @@ def get_ip_address():
 
 def load_config():
     """
-    Load configuration from main_config.yaml and auto-detect this Pi's section.
+    Load configuration from main_config.yaml and auto detect this Pi's section.
     
     This Pi identifies itself by IP address, finds its entry in main_config.yaml,
     and extracts its specific configuration (hardware specs, switch mappings, etc.)
@@ -44,7 +44,7 @@ def load_config():
             - num_relay_hats: int
             - relays_per_hat: int
             - switch_mapping: dict
-            - chassis: list (optional)
+            - chassis: list
             - ip_address: str
             - port: int
     
@@ -140,8 +140,6 @@ NUM_HATS = CONFIG['num_relay_hats']
 RELAYS_PER_HAT = CONFIG['relays_per_hat']
 PI_ID = CONFIG['pi_id']
 
-# Note: Switch mappings are now centralized in main_config.yaml
-# This Pi server just needs to know its hardware specs
 
 
 class SwitchMapper:
@@ -165,7 +163,7 @@ class SwitchMapper:
         Args:
             switch_mapping_config: Dict from YAML with format:
                 {'CH1': {'hat': 0, 'relay': 1}, 'CH1A': {'hat': 0, 'relay': 2}, ...}
-                Relay numbers are 1-based (1-8) matching physical hardware labels.
+                Relay numbers are 1-based (1-8).
         """
         self._switch_to_relay = {}
         self._relay_to_switch = {}
@@ -175,16 +173,18 @@ class SwitchMapper:
         """
         Build bidirectional mapping from YAML config.
         
-        Relay numbers in YAML are 1-based (1-8) to match physical hardware labels.
+        Relay numbers in YAML are 1-based (1-8).
         No conversion needed - YAML values map directly to hardware.
         
-        NOTE: Switch mappings are now in main_config.yaml (centralized).
-        This method is kept for backwards compatibility with direct Pi access.
+        Switch mappings are required in main_config.yaml for switch name-based endpoints.
         """
         if not switch_mapping_config:
-            # No mappings is OK now - main server sends complete instructions
-            print("ℹ️  No switch mappings in local config (using centralized config)")
-            return
+            raise ValueError(
+                "\n❌ ERROR: No switch mappings found in main_config.yaml\n\n"
+                "Switch mappings are required for switch name-based API endpoints.\n"
+                "Each Pi entry must have a 'switch_mapping' section with all switch definitions.\n\n"
+                "See README.md for configuration instructions."
+            )
         
         for switch_name, position in switch_mapping_config.items():
             if not isinstance(position, dict) or 'relay' not in position:
@@ -202,13 +202,13 @@ class SwitchMapper:
                     f"Got: {position}"
                 )
             
-            relay = position['relay']  # 1-based relay in YAML (matches hardware!)
+            relay = position['relay']  # 1-based relay in YAML
             
             # Store with uppercase switch names for consistency
             switch_name_upper = switch_name.upper()
             
             # Build bidirectional mapping
-            # Relay numbers are 1-based, matching physical hardware
+            # Relay numbers are 1-based
             self._switch_to_relay[switch_name_upper] = (hat, relay)
             self._relay_to_switch[(hat, relay)] = switch_name_upper
         
@@ -223,7 +223,7 @@ class SwitchMapper:
         
         Returns:
             tuple: (hat, relay) or None if not found
-            Relay numbers are 1-based (1-8) matching physical hardware.
+            Relay numbers are 1-based (1-8)
             
         Example:
             get_relay_position('CH1') -> (0, 1)  # HAT 0, Relay 1
@@ -290,7 +290,7 @@ def create_app():
         """
         Control a relay directly with complete instructions from main server.
         Main server sends: {switch_name, hat, relay, state}
-        Relay numbers are 1-based (1-8) matching physical hardware labels.
+        Relay numbers are 1-based (1-8).
         This endpoint bypasses switch name lookup entirely.
         """
         data = request.get_json()

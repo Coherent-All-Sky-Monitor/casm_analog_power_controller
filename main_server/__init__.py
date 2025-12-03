@@ -118,7 +118,7 @@ class PiRouter:
     
     def _build_switch_mappings(self):
         """Build mappings from switch names to Pi addresses AND relay positions"""
-        self.switch_to_pi = {}  # switch_name -> base_url
+        self.switch_to_pi = {}  # switch_name -> pi_url
         self.switch_to_relay = {}  # switch_name -> {pi_url, hat, relay}
         self.chassis_to_pi = {}  # chassis_num -> pi_info
         
@@ -128,22 +128,22 @@ class PiRouter:
             chassis_list = pi_data.get('chassis', [])
             switch_mapping = pi_data.get('switch_mapping', {})
             
-            base_url = f"http://{ip}:{port}"
+            pi_url = f"http://{ip}:{port}"
             
             # Map each chassis to this Pi
             for chassis_num in chassis_list:
                 self.chassis_to_pi[chassis_num] = {
                     'pi_id': pi_id,
-                    'base_url': base_url,
+                    'pi_url': pi_url,
                     'ip': ip,
                     'port': port
                 }
             
             # Map each switch to its Pi URL and relay position
             for switch_name, relay_pos in switch_mapping.items():
-                self.switch_to_pi[switch_name.upper()] = base_url
+                self.switch_to_pi[switch_name.upper()] = pi_url
                 self.switch_to_relay[switch_name.upper()] = {
-                    'pi_url': base_url,
+                    'pi_url': pi_url,
                     'hat': relay_pos.get('hat'),
                     'relay': relay_pos.get('relay')
                 }
@@ -162,13 +162,13 @@ class PiRouter:
     
     def get_pi_for_switch(self, switch_name):
         """
-        Get the Pi base URL for a given switch name.
+        Get the Pi URL for a given switch name.
         
         Args:
             switch_name: Switch name like 'CH1', 'CH1A', etc.
         
         Returns:
-            str: Base URL of the Pi, or None if not found
+            str: URL of the Pi, or None if not found
         """
         return self.switch_to_pi.get(switch_name.upper())
     
@@ -198,7 +198,7 @@ def forward_to_pi(pi_url, endpoint, method='GET', data=None, timeout=None):
     Forward an HTTP request to a Raspberry Pi.
     
     Args:
-        pi_url: Base URL of the Pi
+        pi_url: URL of the Pi
         endpoint: API endpoint (e.g., '/api/switch/CH1')
         method: HTTP method ('GET' or 'POST')
         data: JSON data for POST requests
@@ -251,14 +251,14 @@ def check_pi_status():
             for pi_id, pi_data in RASPBERRY_PIS.items():
                 ip = pi_data.get('ip_address')
                 port = pi_data.get('port', 5001)
-                base_url = f"http://{ip}:{port}"
+                pi_url = f"http://{ip}:{port}"
                 
                 # Measure response time
                 start_time = time.time()
                 
                 try:
                     response = requests.get(
-                        f"{base_url}/api/status",
+                        f"{pi_url}/api/status",
                         timeout=REQUEST_TIMEOUT
                     )
                     response_time_ms = (time.time() - start_time) * 1000
@@ -269,7 +269,7 @@ def check_pi_status():
                             'status': status,
                             'last_check': time.time(),
                             'response': response.json() if response.status_code == 200 else None,
-                            'base_url': base_url
+                            'pi_url': pi_url
                         }
                     
                     # Log the status check
@@ -289,7 +289,7 @@ def check_pi_status():
                             'status': 'offline',
                             'last_check': time.time(),
                             'error': error_msg,
-                            'base_url': base_url
+                            'pi_url': pi_url
                         }
                     
                     # Log the failure
@@ -414,7 +414,7 @@ def create_app():
         Args:
             pi_id: Pi identifier (e.g., 'pi_1', 'pi_2')
             hat: HAT number (0-based, e.g., 0, 1, 2)
-            relay: Relay number (1-based, e.g., 1-8) matching physical hardware labels
+            relay: Relay number (1-based, e.g., 1-8)
         
         Body:
             {"state": 0 or 1}
@@ -478,7 +478,7 @@ def create_app():
         Args:
             pi_id: Pi identifier (e.g., 'pi_1', 'pi_2')
             hat: HAT number (0-based)
-            relay: Relay number (1-based, 1-8) matching physical hardware labels
+            relay: Relay number (1-based, 1-8)
         
         Example:
             GET /api/relay/pi_1/0/1
@@ -569,7 +569,7 @@ def create_app():
             }), 404
         
         response, status_code = forward_to_pi(
-            pi_info['base_url'],
+            pi_info['pi_url'],
             f'/api/switch/chassis/{chassis_num}',
             method='GET'
         )
@@ -596,7 +596,7 @@ def create_app():
                 'chassis': pi_data.get('chassis', []),
                 'status': status.get('status'),
                 'last_check': status.get('last_check'),
-                'base_url': f"http://{pi_data.get('ip_address')}:{pi_data.get('port', 5001)}"
+                'pi_url': f"http://{pi_data.get('ip_address')}:{pi_data.get('port', 5001)}"
             })
         
         return jsonify({

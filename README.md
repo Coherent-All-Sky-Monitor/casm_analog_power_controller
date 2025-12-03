@@ -531,7 +531,7 @@ capc -s 1 -r 7 --on -d
 
 ---
 
-### Command Line Using Curl Commands (Legacy)
+### Command Line Using Curl Commands
 
 If you prefer curl or need to integrate with other tools, all functionality is available via REST API.
 
@@ -578,29 +578,6 @@ curl http://main-server:5000/api/switch/chassis/1
 **Direct Pi access (bypasses main server):**
 ```bash
 curl -X POST http://192.168.1.100:5001/api/switch/CH1 -d '{"state": 1}'
-```
-
-### Bash Script Example
-
-```bash
-#!/bin/bash
-MAIN="http://192.168.1.50:5000" # replace 192.158.1.50 with main server's IP address
-
-# Check status before starting
-STATUS=$(curl -s $MAIN/api/status)
-echo "System status: $STATUS"
-
-# Power up chassis 1
-echo "Powering up chassis 1..."
-curl -X POST $MAIN/api/switch/CH1 -H "Content-Type: application/json" -d '{"state": 1}'
-sleep 1
-
-# Turn on BACboards
-for switch in CH1A CH1B CH1C CH1D CH1E; do
-    curl -X POST $MAIN/api/switch/$switch -H "Content-Type: application/json" -d '{"state": 1}'
-done
-
-echo "Done!"
 ```
 
 ---
@@ -772,36 +749,11 @@ raspberry_pis:
 - **Use static IPs** for Pis
 - **Username consistency**: Both Pis should use username `casm` (not default `pi`) for easier management
 - **Check status** before experiments
-- **Configs must match** between main server and Pis
 - **HAT numbers are local** on each Pi (always start at 0)
 - **Each chassis** can only be controlled by ONE Pi
 
 ### Setting Up Username on Raspberry Pi
 
-If your Pi uses the default `pi` username, change it to `casm` for consistency:
-
-```bash
-# SSH to the Pi
-ssh pi@<pi-ip-address>  # Use current username and IP
-
-# Create new user 'casm'
-sudo adduser casm
-# Follow prompts to set password
-
-# Give sudo privileges
-sudo usermod -aG sudo casm
-
-# Copy SSH keys (optional, for passwordless login)
-sudo cp -r /home/pi/.ssh /home/casm/
-sudo chown -R casm:casm /home/casm/.ssh
-
-# Test new user works
-exit
-ssh casm@<pi-ip-address>
-
-# Once confirmed working, optionally delete old 'pi' user
-sudo deluser --remove-home pi
-```
 
 **Why `casm` username?** Consistent username across all Pis makes management easier and matches the project name.
 
