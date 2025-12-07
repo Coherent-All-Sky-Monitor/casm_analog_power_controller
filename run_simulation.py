@@ -11,12 +11,12 @@ from simulation import create_app
 if __name__ == '__main__':
     app = create_app()
     print("=" * 60)
-    print("🧪 CASM Analog Power Controller - SIMULATION MODE")
+    print("SIMULATION MODE - CASM Analog Power Controller")
     print("=" * 60)
-    print("📡 Server running on: http://0.0.0.0:5001")
-    print("🌐 Access locally at: http://localhost:5001")
-    print("🔌 Simulating 6 stacks × 8 relays = 48 total relays")
-    print("⚠️  NO HARDWARE - This is SIMULATION mode")
+    print("Server running on: http://0.0.0.0:5001")
+    print("Access locally at: http://localhost:5001")
+    print("Simulating 6 stacks × 8 relays = 48 total relays")
+    print("NO HARDWARE - This is SIMULATION mode")
     print("=" * 60)
     print("\nPress Ctrl+C to stop the server\n")
     

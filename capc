@@ -57,7 +57,7 @@ def fetch_pi_ips() -> dict:
                     pis[pi_id] = pi_data["ip_address"]
             return pis if pis else PI_IPS
     except Exception as e:
-        print(f"⚠️  Warning: Could not fetch Pi IPs from main server: {e}", file=sys.stderr)
+        print(f"Warning: Could not fetch Pi IPs from main server: {e}", file=sys.stderr)
     return PI_IPS
 
 
@@ -78,7 +78,7 @@ def determine_pi_for_switch(switch_name: str) -> Optional[str]:
                 if chassis_num in pi_data.get("chassis", []):
                     return pi_data.get("ip_address")
     except Exception as e:
-        print(f"⚠️  Warning: Could not determine Pi for switch: {e}", file=sys.stderr)
+        print(f"Warning: Could not determine Pi for switch: {e}", file=sys.stderr)
     
     # Fallback: assume first Pi
     pis = fetch_pi_ips()
@@ -159,7 +159,7 @@ def control_by_hat_relay(hat_num: int, relay_num: int, state: int, direct: bool 
             # For now, use the first Pi as default, but ideally should be specified
             pis = fetch_pi_ips()
             pi_ip = list(pis.values())[0] if pis else "192.168.1.2"
-            print(f"ℹ️  Auto-selected Pi @ {pi_ip} for HAT {hat_num}", file=sys.stderr)
+            print(f"Auto-selected Pi @ {pi_ip} for HAT {hat_num}", file=sys.stderr)
         
         url = f"{get_pi_server_url(pi_ip)}/api/relay/{hat_num}/{relay_num}"
         server_name = f"Pi @ {pi_ip}"
@@ -243,7 +243,7 @@ def list_all_switches(direct: bool = False, pi_ip: Optional[str] = None) -> None
             data = response.json()
             switches = data.get("switches", {})
             
-            print(f"📡 Available Switches (from {server_name}):\n")
+            print(f"Available Switches (from {server_name}):\n")
             
             # Group by chassis
             chassis_groups = {}
@@ -336,7 +336,7 @@ The curl equivalents:
             response = requests.get(f"{get_main_server_url()}/api/status", timeout=5)
             if response.ok:
                 data = response.json()
-                print("📊 System Status:\n")
+                print("System Status:\n")
                 print(f"Total Switches: {data.get('total_switches', 0)}")
                 print(f"Raspberry Pis: {len(data.get('raspberry_pis', {}))}\n")
                 

@@ -22,7 +22,7 @@ def load_config():
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-            print(f"✅ Loaded main server config from {config_path}")
+            print(f"Loaded main server config from {config_path}")
             return config
     except Exception as e:
         raise Exception(f"Error loading config: {e}")
@@ -67,7 +67,7 @@ def init_status_db():
     
     conn.commit()
     conn.close()
-    print(f"✅ Status logging database initialized: {db_path}")
+    print(f"Status logging database initialized: {db_path}")
 
 # Initialize database on module load
 init_status_db()

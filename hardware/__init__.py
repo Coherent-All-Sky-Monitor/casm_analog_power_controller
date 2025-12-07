@@ -59,7 +59,7 @@ def load_config():
     # Check if main_config.yaml exists
     if not main_config_path.exists():
         raise FileNotFoundError(
-            f"\n❌ ERROR: main_config.yaml not found at {main_config_path}\n\n"
+            f"\nERROR: main_config.yaml not found at {main_config_path}\n\n"
             f"This Pi loads its configuration from main_config.yaml.\n"
             f"Make sure you've cloned the repo with the config file.\n\n"
             f"See README.md for setup instructions."
@@ -71,7 +71,7 @@ def load_config():
             main_config = yaml.safe_load(f)
     except Exception as e:
         raise Exception(
-            f"\n❌ ERROR: Failed to load main_config.yaml\n"
+            f"\nERROR: Failed to load main_config.yaml\n"
             f"Error: {e}\n\n"
             f"Check that the file is valid YAML format."
         )
@@ -80,12 +80,12 @@ def load_config():
     my_ip = get_ip_address()
     if not my_ip:
         raise RuntimeError(
-            "\n❌ ERROR: Could not detect this Pi's IP address\n\n"
+            "\nERROR: Could not detect this Pi's IP address\n\n"
             "Make sure the Pi has a network connection.\n"
             "You can manually check with: hostname -I"
         )
     
-    print(f"🔍 Detected this Pi's IP address: {my_ip}")
+    print(f"Detected this Pi's IP address: {my_ip}")
     
     # Find this Pi's configuration by matching IP address
     raspberry_pis = main_config.get('raspberry_pis', {})
@@ -102,7 +102,7 @@ def load_config():
         # Show available IPs to help with debugging
         available_ips = [cfg.get('ip_address') for cfg in raspberry_pis.values()]
         raise RuntimeError(
-            f"\n❌ ERROR: This Pi's IP ({my_ip}) not found in main_config.yaml\n\n"
+            f"\nERROR: This Pi's IP ({my_ip}) not found in main_config.yaml\n\n"
             f"Available Pi IPs in config: {available_ips}\n\n"
             f"Either:\n"
             f"  1. Update main_config.yaml to include this Pi's IP\n"
@@ -119,7 +119,7 @@ def load_config():
     
     if missing_fields:
         raise ValueError(
-            f"\n❌ ERROR: Missing required fields in main_config.yaml for {my_pi_id}\n"
+            f"\nERROR: Missing required fields in main_config.yaml for {my_pi_id}\n"
             f"Missing: {missing_fields}\n\n"
             f"Each Pi entry must have:\n"
             f"  - num_relay_hats: 3\n"
@@ -127,7 +127,7 @@ def load_config():
             f"  - switch_mapping: {{...}}\n"
         )
     
-    print(f"✅ Loaded configuration for {my_pi_id} from main_config.yaml")
+    print(f"Loaded configuration for {my_pi_id} from main_config.yaml")
     print(f"   - Chassis: {my_config.get('chassis', 'N/A')}")
     print(f"   - HATs: {my_config['num_relay_hats']}")
     print(f"   - Switch mappings: {len(my_config['switch_mapping'])} switches")
@@ -180,7 +180,7 @@ class SwitchMapper:
         """
         if not switch_mapping_config:
             raise ValueError(
-                "\n❌ ERROR: No switch mappings found in main_config.yaml\n\n"
+                "\nERROR: No switch mappings found in main_config.yaml\n\n"
                 "Switch mappings are required for switch name-based API endpoints.\n"
                 "Each Pi entry must have a 'switch_mapping' section with all switch definitions.\n\n"
                 "See README.md for configuration instructions."
@@ -189,7 +189,7 @@ class SwitchMapper:
         for switch_name, position in switch_mapping_config.items():
             if not isinstance(position, dict) or 'relay' not in position:
                 raise ValueError(
-                    f"\n❌ ERROR: Invalid mapping for '{switch_name}' in main_config.yaml\n"
+                    f"\nERROR: Invalid mapping for '{switch_name}' in main_config.yaml\n"
                     f"Expected format: {switch_name}: {{hat: X, relay: Y}}\n"
                     f"Got: {position}"
                 )
@@ -197,7 +197,7 @@ class SwitchMapper:
             hat = position.get('hat')
             if hat is None:
                 raise ValueError(
-                    f"\n❌ ERROR: Missing 'hat' field for '{switch_name}' in main_config.yaml\n"
+                    f"\nERROR: Missing 'hat' field for '{switch_name}' in main_config.yaml\n"
                     f"Expected format: {switch_name}: {{hat: X, relay: Y}}\n"
                     f"Got: {position}"
                 )
@@ -212,7 +212,7 @@ class SwitchMapper:
             self._switch_to_relay[switch_name_upper] = (hat, relay)
             self._relay_to_switch[(hat, relay)] = switch_name_upper
         
-        print(f"✅ Loaded {len(self._switch_to_relay)} switch mappings from YAML config")
+        print(f"Loaded {len(self._switch_to_relay)} switch mappings from YAML config")
     
     def get_relay_position(self, switch_name):
         """

@@ -13,11 +13,11 @@ if __name__ == '__main__':
     app = create_app()
     
     print("=" * 60)
-    print("🚀 CASM Analog Power Controller - MAIN SERVER")
+    print("CASM Analog Power Controller - MAIN SERVER")
     print("=" * 60)
-    print("📡 Server running on: http://0.0.0.0:5000")
-    print("🌐 Access locally at: http://localhost:5000")
-    print(f"🔌 Configured Raspberry Pis: {len(RASPBERRY_PIS)}")
+    print("Server running on: http://0.0.0.0:5000")
+    print("Access locally at: http://localhost:5000")
+    print(f"Configured Raspberry Pis: {len(RASPBERRY_PIS)}")
     print()
     
     for pi_id, pi_data in RASPBERRY_PIS.items():
@@ -27,8 +27,8 @@ if __name__ == '__main__':
         print(f"   • {pi_id}: {ip}:{port} -> Chassis {chassis}")
     
     print()
-    print("⚡ This server routes requests to individual Pis")
-    print("🔍 Status monitoring enabled")
+    print("This server routes requests to individual Pis")
+    print("Status monitoring enabled")
     print("=" * 60)
     print("\nPress Ctrl+C to stop the server\n")
     

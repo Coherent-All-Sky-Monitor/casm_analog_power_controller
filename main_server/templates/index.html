@@ -226,7 +226,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>⚡ CASM Main Server Control</h1>
+            <h1>CASM Main Server Control</h1>
             <p class="subtitle">Multi-Pi Switch Control & Monitoring</p>
         </header>
 
@@ -334,13 +334,13 @@
                 card.className = `chassis-card chassis-${chassisNum}`;
                 card.innerHTML = `
                     <div class="chassis-header">
-                        <div class="chassis-title">🔌 Chassis ${chassisNum}</div>
+                        <div class="chassis-title">Chassis ${chassisNum}</div>
                         <div class="chassis-pi">Controlled by: ${piName}</div>
                     </div>
                     
                     ${chassisPower ? `
                     <div class="switch-section">
-                        <h3>⚡ Chassis Power</h3>
+                        <h3>Chassis Power</h3>
                         <div class="switch-grid">
                             ${renderSwitch(chassisPower.name, chassisPower.state)}
                         </div>
@@ -348,7 +348,7 @@
                     ` : ''}
                     
                     <div class="switch-section">
-                        <h3>📡 BACboard Controls (${snapSwitches.length} SNAPs)</h3>
+                        <h3>BACboard Controls (${snapSwitches.length} SNAPs)</h3>
                         <div class="switch-grid">
                             ${snapSwitches.map(s => renderSwitch(s.name, s.state)).join('')}
                         </div>

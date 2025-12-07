@@ -283,12 +283,12 @@ python3 run_pi_server.py
 ```
 
 **Summary:**
-1. ✅ Pi connects to WiFi/ethernet with static IP (ex: 192.168.1.2 or 192.168.1.3)
-2. ✅ Computer connects to same WiFi/ethernet for SSH access
-3. ✅ Enable I2C interface (required for HAT communication)
-4. ✅ Clone repo and install dependencies
-5. ✅ Disable WiFi/Bluetooth hardware to prevent RFI
-6. ✅ Connect via Ethernet and run code
+1. Pi connects to WiFi/ethernet with static IP (ex: 192.168.1.2 or 192.168.1.3)
+2. Computer connects to same WiFi/ethernet for SSH access
+3. Enable I2C interface (required for HAT communication)
+4. Clone repo and install dependencies
+5. Disable WiFi/Bluetooth hardware to prevent RFI
+6. Connect via Ethernet and run code
 
 **Pi Auto-Configuration:**
 
@@ -445,10 +445,10 @@ request_timeout: 5
 **Minimal Configuration on Pis** Set static IP and `git pull`.
 
 **Important:** 
-- ✅ **All Configuration Happens Through Main** - `main_config.yaml`
-- ✅ **HAT numbers** are 0-based (0, 1, 2 for 3 HATs)
-- ✅ **Relay numbers** are 1-based (1-8)
-- ✅ **Switch mapping is NOT sequential** - must match physical wiring
+- **All Configuration Happens Through Main** - `main_config.yaml`
+- **HAT numbers** are 0-based (0, 1, 2 for 3 HATs)
+- **Relay numbers** are 1-based (1-8)
+- **Switch mapping is NOT sequential** - must match physical wiring
 ---
 
 ## Usage
@@ -523,11 +523,11 @@ capc -s 1 -r 7 --on -d
 ```
 
 **Why use `capc`?**
-- ✅ Simpler syntax (no JSON formatting)
-- ✅ Auto-detects which Pi controls which switch
-- ✅ Clear success/error messages
-- ✅ Less typing than curl
-- ✅ Built-in help: `capc --help`
+- Simpler syntax (no JSON formatting)
+- Auto-detects which Pi controls which switch
+- Clear success/error messages
+- Less typing than curl
+- Built-in help: `capc --help`
 
 ---
 
@@ -663,10 +663,10 @@ switch_mapping:
 ```
 
 **Why Two Pis:**
-- ✅ **Redundancy** - Chassis 1-2 stay operational if Pi 2 fails
-- ✅ **Load distribution** - 24 relays per Pi instead of 48
-- ✅ **Easier wiring** - Shorter cable runs from Pi to daughterboards
-- ✅ **Modular** - Can test/debug one chassis pair at a time
+- **Redundancy** - Chassis 1-2 stay operational if Pi 2 fails
+- **Load distribution** - 24 relays per Pi instead of 48
+- **Easier wiring** - Shorter cable runs from Pi to daughterboards
+- **Modular** - Can test/debug one chassis pair at a time
 
 **Important Notes:**
 - Each Pi has **static IP** configured via boot script (no DHCP)
@@ -724,23 +724,23 @@ raspberry_pis:
 
 ### Benefits:
 
-✅ **Single config file** - All Pis configured in `main_config.yaml`  
-✅ **Auto-detection** - Pi automatically finds its config by IP  
-✅ **Version control** - Centralized config in git  
-✅ **Easy updates** - Edit `main_config.yaml` and push, Pis auto-configure  
-✅ **No per-Pi files** - One config for all Pis
+- **Single config file** - All Pis configured in `main_config.yaml`  
+- **Auto-detection** - Pi automatically finds its config by IP  
+- **Version control** - Centralized config in git  
+- **Easy updates** - Edit `main_config.yaml` and push, Pis auto-configure  
+- **No per-Pi files** - One config for all Pis
 
 ---
 
 ## Key Features
 
-✅ **Scalable** - 1 to N Pis, add/remove by editing config  
-✅ **Unified API** - Same commands regardless of Pi count  
-✅ **Status Monitoring** - Know when Pis are down  
-✅ **Flexible** - Any chassis distribution  
-✅ **Web + CLI** - Browser UI or curl commands  
-✅ **Pi Agnostic** - Same code on all Pis  
-✅ **Auto-Configuration** - Pis detect their role based on IP
+- **Scalable** - 1 to N Pis, add/remove by editing config  
+- **Unified API** - Same commands regardless of Pi count  
+- **Status Monitoring** - Know when Pis are down  
+- **Flexible** - Any chassis distribution  
+- **Web + CLI** - Browser UI or curl commands  
+- **Pi Agnostic** - Same code on all Pis  
+- **Auto-Configuration** - Pis detect their role based on IP
 
 ---
 
@@ -764,10 +764,10 @@ raspberry_pis:
 ### Main Server (Dockerized)
 
 **The main server runs in Docker for:**
-- ✅ Consistent environment across different OS
-- ✅ Easy deployment and updates
-- ✅ Automatic restart on crash
-- ✅ Isolated from system dependencies
+- Consistent environment across different OS
+- Easy deployment and updates
+- Automatic restart on crash
+- Isolated from system dependencies
 
 **Files:**
 - `Dockerfile` - Main server container image
@@ -807,10 +807,10 @@ docker-compose logs -f
 ### Raspberry Pis (Native - No Docker)
 
 **Pis run native (non-containerized) because:**
-- ❌ Docker adds complexity for hardware access
-- ✅ Direct I2C access to relay HATs
-- ✅ Lower resource overhead
-- ✅ Easier debugging
+- Docker adds complexity for hardware access
+- Direct I2C access to relay HATs
+- Lower resource overhead
+- Easier debugging
 
 **Deployment:**
 - Systemd service for auto-start

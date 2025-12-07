@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>⚡ CASM Analog Power Controller</h1>
+            <h1>CASM Analog Power Controller</h1>
             <p class="subtitle" id="pi-subtitle">Pi Server Control Interface</p>
             <div class="header-controls">
                 <button class="reset-btn" onclick="turnOffAllRelays()">Turn OFF All Relays</button>
@@ -24,7 +24,7 @@
 
         <!-- curl Command Examples Section -->
         <div class="api-examples">
-            <h2>📡 API Usage (curl Commands)</h2>
+            <h2>API Usage (curl Commands)</h2>
             
             <div class="example-section">
                 <h3>Turn Switch ON/OFF</h3>
@@ -120,7 +120,7 @@ curl -X POST http://localhost:5001/api/relay/0/1 \
                 chassisSection.style.marginBottom = '30px';
                 
                 const sectionTitle = document.createElement('h2');
-                sectionTitle.textContent = `🔌 Chassis ${chassisNum}`;
+                sectionTitle.textContent = `Chassis ${chassisNum}`;
                 sectionTitle.style.marginBottom = '15px';
                 chassisSection.appendChild(sectionTitle);
 
