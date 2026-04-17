@@ -312,10 +312,10 @@ cd casm_analog_power_controller
 mkdir -p data
 
 # Start main server with Docker Compose
-docker-compose up -d
+sudo docker compose up -d
 
 # Check logs
-docker-compose logs -f
+docker compose logs -f
 
 # Check status
 curl http://localhost:5000/api/status
